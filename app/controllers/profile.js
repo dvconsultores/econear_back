@@ -10,8 +10,6 @@ const path = require('path');
 const { ParaSwap } = require('paraswap');
 const { response } = require('express');
 */
-const { updateTransactions, updateProjects } = require('./funciones')
-
 
 
 const { utils, Contract, keyStores, KeyPair, Near, Account } = nearAPI
@@ -27,6 +25,67 @@ keyStore.setKey(NETWORK, SIGNER_ID, keyPair)
 const near = new Near(CONFIG(keyStore))
 const account = new Account(near.connection, SIGNER_ID)
 
+
+
+const YourBalance = async (req, res) => {
+    try {
+        const { user_id } = req.body;
+
+        const conexion = await dbConnect2();
+
+        let contract_usdc = "usdc.fakes.testnet"
+        let saldo_usdc = 0
+
+        let contract_usdt = "dac17f958d2ee523a2206206994597c13d831ec7.factory.bridge.near"
+        let saldo_usdt = 0
+
+        let contract_dai = "6b175474e89094c44da98b954eedeac495271d0f.factory.bridge.near"
+        let saldo_dai = 0
+
+        try {
+            const contract = new Contract(account, contract_usdc, {
+                viewMethods: ['ft_balance_of'],
+                sender: account
+            })
+        
+            const response = await contract.ft_balance_of({account_id: user_id})
+            console.log("paso aqui", response)
+            saldo_usdc = response
+        } catch (error) {
+            console.log('error 2: ', error)
+        }
+
+        try {
+            const contract = new Contract(account, contract_usdt, {
+                viewMethods: ['ft_balance_of'],
+                sender: account
+            })
+        
+            const response = await contract.ft_balance_of({account_id: user_id})
+            saldo_usdt = response
+        } catch (error) {
+            console.log('error 2: ', error)
+        }
+
+        try {
+            const contract = new Contract(account, contract_dai, {
+                viewMethods: ['ft_balance_of'],
+                sender: account
+            })
+        
+            const response = await contract.ft_balance_of({account_id: user_id})
+            saldo_dai = response
+        } catch (error) {
+            console.log('error 2: ', error)
+        }
+        
+        res.json({saldo_usdc: saldo_usdc, saldo_usdt: saldo_usdt, saldo_dai: saldo_dai})
+        
+    } catch (error) {
+        console.log('error 1: ', error)
+        res.error
+    }
+}
 
 const YourProjectsList = async (req, res) => {
     try {
@@ -167,7 +226,7 @@ const YourPerfil = async (req, res) => {
 
 
 
-module.exports = { YourProjectsList, ToSubscribe, SavePerfil, YourPerfil }
+module.exports = { YourBalance, YourProjectsList, ToSubscribe, SavePerfil, YourPerfil }
 
 
 
