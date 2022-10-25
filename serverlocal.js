@@ -10,6 +10,8 @@ const { ApolloServer } = require('apollo-server-express')
 const { typeDefs } = require('./app/graphql/TypeDefs')
 const { resolvers } = require('./app/graphql/resolvers')
 
+
+
 require('dotenv').config()
 
 app.use(cors({
@@ -24,12 +26,9 @@ app.use(morgan('dev'))
 
 app.use('/api/v1', require('./app/routes'))
 
-const { Collections } = require('./app/graphql/dataPostgresql')
+//const { Collections } = require('./app/graphql/dataPostgresql')
 
 async function startGraphql() {
-
-  
-
   const apolloServer = new ApolloServer ({
     typeDefs,
     resolvers
@@ -43,5 +42,5 @@ async function startGraphql() {
 startGraphql()
 
 app.listen(port, () => {  
-    console.log(`Server listening on the port::${port}`);
+    console.log(`Server listening on the port::${port} http://localhost:${port}/graphql`);
 });

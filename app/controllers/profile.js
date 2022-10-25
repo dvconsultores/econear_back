@@ -164,76 +164,8 @@ const YourPerfil = async (req, res) => {
 }
 //CargarRutaIfsImgNft()
 
-/*
-const VueApollo = require("vue-apollo");
-const gql = require("graphql-tag");
-//Vue.use(VueApollo)
-
-const apolloClient = new ApolloClient({
-    // You should use an absolute URL here
-    // uri: 'https://mintbase-mainnet.hasura.app/v1/graphql'
-    uri: "https://interop-testnet.hasura.app/v1/graphql",
-})
-
-const apolloProvider = new VueApollo({
-    clients: {
-      apolloClient
-    },
-    defaultClient: apolloClient,
-});
-*/
 
 
-
-
-
-const gql = require('graphql-tag');
-const ApolloClient = require('apollo-boost').ApolloClient;
-const fetch = require('cross-fetch/polyfill').fetch;
-const createHttpLink = require('apollo-link-http').createHttpLink;
-const InMemoryCache = require('apollo-cache-inmemory').InMemoryCache;
-
-const client = new ApolloClient({
-    link: createHttpLink({
-        uri: "https://api.thegraph.com/subgraphs/name/hrpalencia/pruebas2",
-        fetch: fetch
-    }),
-    cache: new InMemoryCache()
-});
-
-const monke = new ApolloClient({
-    link: createHttpLink({
-        uri: "https://main--hector-palencias-team-2.apollographos.net/graphql",
-        fetch: fetch
-    }),
-    cache: new InMemoryCache()
-});
-
-async function consultaApollo() {
-    const nft_tokens_aggregate = gql`
-    query Feed($offset: Int, $limit: Int) {
-        sellbuynfts(offset: 5001, limit: 1000) {
-            id
-            collection
-            tokenid
-            market
-          }
-          
-    }
-    `;
-
-    await monke.query({
-        query: nft_tokens_aggregate,
-        variables: {
-            offset: 0,
-            limit: 10
-        },
-    }).then(job => {
-        console.log(JSON.stringify(job, null, 2));
-    }).catch((error) => { console.log(error)})
-}
-
-consultaApollo()
 
 module.exports = { YourProjectsList, ToSubscribe, SavePerfil, YourPerfil }
 

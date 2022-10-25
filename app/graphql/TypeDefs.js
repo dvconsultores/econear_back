@@ -2,15 +2,20 @@ const { gql } = require('apollo-server-express')
 
 
 const typeDefs = gql`
-  type collections {
-    nft_contract: String!
-    name: String!
-    icon: String!
+
+  type collectionss {
+    collection: String!
+    collection_name: String!
+    collection_icon: String!
+    token_id: String!
+    titulo: String!
+    price: String!
+    price_near: Float!
   }
-  
+
   type Query{
     books: [Book]
-    getAllCollections: [collections]
+    getNftCollection(collection: String!): [collectionss]
   }
 
   type Book{

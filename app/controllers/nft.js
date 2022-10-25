@@ -5,6 +5,8 @@ const axios = require('axios');
 const moment = require('moment');
 const { updateTransactions } = require('./funciones')
 const { CargarRutaIfsImgNft, UpdateNft } = require('./funcionesNft')
+const { colsutaGraph } = require('../graphql/dataThegraph')
+const gql = require('graphql-tag');
 /*
 const secp = require('tiny-secp256k1');
 const ecfacory = require('ecpair');
@@ -128,7 +130,7 @@ const ListMarketplaceCollection = async (req, res) => {
     }
 }
 
-const ListNft = async (req, res) => {
+/*const ListNft = async (req, res) => {
     try {
         const { collection, tokenid, marketplace, limit, index, sales, order, type_order } = req.body;
 
@@ -197,7 +199,7 @@ const ListNft = async (req, res) => {
         console.log('error 1: ', error)
         res.error
     }
-}
+}*/
 
 const CollectionDetails = async (req, res) => {
     try {
@@ -432,7 +434,366 @@ async function pruebas() {
 }
 
 
+/*const ListNft = async (req, res) => {*/
+        
+const ListNft = async (req, res) => {
+    try {
+        const { collection, tokenid, marketplace, limit, index, sales, order, type_order } = req.body;
+        let excess = 0
+        let array = []
+        let queryGql 
+        let variables
+        let limite = parseInt(limit)
+        let indice = parseInt(index)
 
+        let var_sales = tokenid ? tokenid == "%" || tokenid == "" ? sales : "tokenid" : sales
+
+        const conexion = await dbConnect2()
+        /*------------------------------delete market ---------------------------*/
+        async function DeleteMarket() {
+            const dm = await conexion.query("   select max(fecha) as fecha, token_id  \
+            from nft_collections_transaction nct \
+            where collection = $1 \
+            group by token_id ", [collection]) //and token_id in ("+tokenDeletemarket+") \
+            return dm.rows
+
+        }
+        /*------------------------------------------------------------------------*/
+        
+
+
+        /*--------------------ajustes data nft marketplace -----------------------*/
+        async function DetailsCollectioMarket(nftmarketfinal, detail) {
+            /*---------------------------------data nft tokens---------------------------------*/
+            let nftcolecionDetails = []
+            let marketDetails = []
+
+            if(detail == 'collection' || detail == 'todo') {
+                const tokens = nftmarketfinal.length > 0 ? nftmarketfinal.map(item => {return item.tokenid}) : []
+                let token = ''
+                for(let i = 0; i < tokens.length; i++) {
+                    token += "'"+tokens[i]+"'"
+                    if(i != tokens.length -1) {
+                        token += ","
+                    }
+                }
+                const dt = nftmarketfinal.length == 0 ? {rows: []} : await conexion.query("   select nc.token_id as tokenid, nc.token_new_owner_account_id  as owner, titulo, descripcion, coalesce(nc.media, '') as media, \
+                                                                coalesce(nc.extra, '') as extra, coalesce(nc.reference, '') as reference, coalesce(nc.media_pinata, '') as media_pinata, \
+                                                                nc.collection, c.name as name_collection, coalesce(c.icon, '') as icon_collection, c.base_uri \
+                                                            from nft_collections nc \
+                                                            inner join collections c on c.nft_contract = nc.collection \
+                                                            where collection = $1 \
+                                                            and token_id in ("+token+") ", [collection])
+                nftcolecionDetails = dt.rows
+            }
+            /*-------------------------------------------------------------------------------------------------------*/
+            
+            /*--------------------------------- data marketplace-----------------------------------------------------*/
+            if(detail == 'market' || detail == 'todo') {
+                const dmp = nftmarketfinal.length == 0 && detail != 'market' ? {rows: []} : await conexion.query(" select marketplace as market, name, icon, web from marketplaces ")
+                marketDetails = dmp.rows
+            }
+            /*--------------------------------------------------------------------------------------------------------*/
+
+            return {nftcolecionDetails: nftcolecionDetails, marketDetails: marketDetails}
+        }
+
+        /*------------------------------------------------------------------------*/
+
+        /*-----------------------data nft collection bd ------------------------- */
+        async function nftCollectionBd(limt, offset) { 
+            try {
+                console.log("funcion bd")
+                let var_tokenid = var_sales == "tokenid" ? tokenid : "%"
+                console.log("algodon", var_tokenid)
+                let query = "select collection, token_id, token_id as tokenid, owner_id, '' as precio, 0 as precio_near, base_uri, titulo, descripcion, media, media_pinata, \
+                                    extra, reference, '' as market_name, '' as marketplace, '' as market_icon, '' as market_web \
+                    from ( \
+                    select \
+                        nc.collection, nc.token_id, nc.token_new_owner_account_id as owner_id, \
+                        c.base_uri, nc.titulo, nc.descripcion, nc.media, nc.extra, nc.reference, \
+                        coalesce(nc.media_pinata, '') as media_pinata \
+                    from nft_collections nc \
+                    inner join collections c on c.nft_contract = nc.collection \
+                    where nc.collection = $1 and ('%' = $2 or nc.token_id = $2) "
+                
+                query += " ) sub "
+
+                let typeOrder = type_order ? type_order : "asc"
+
+                switch (order) {
+                    case 'token_id':
+                        query += " order by sub.token_id " + typeOrder;
+                        break;
+                    default:
+                        query += "";
+                        break;
+                }
+
+                query += " limit $3 offset $4 ";
+
+                const resultados = await conexion.query(query, [collection, var_tokenid, limt, offset]);
+                
+                return resultados.rows
+            } catch(err) {
+                console.log(err)
+                return []
+            }
+        }
+
+        switch (var_sales) {
+            case true: {
+                const deleteMarket = await DeleteMarket()
+                /*---------------------------------------------------------------------------*/
+                let limitOrigen = parseInt(limit)
+                let nftmarketfinal = []
+                let orderD = type_order ? type_order : "asc"
+
+                while (100) {
+                    if(limite > 999) { break }
+                    if(marketplace == '%' || marketplace.trim() == '') {
+                        queryGql = gql`
+                            query MyQuery($collection: String!, $index: Int!, $limit: Int!, $orderD: String!) {
+                                nftmarkets(skip: $index, first: $limit, where: { collection: $collection, pricenear_not: 0 }, orderBy: pricenear, orderDirection: $orderD) {
+                                    id
+                                    collection
+                                    tokenid
+                                    market
+                                    price
+                                    pricenear
+                                    fecha 
+                                }
+                            }
+                        `;
+                        variables = { collection: collection, index: indice, limit: limite, orderD: orderD }    
+                    } else {
+                        queryGql = gql`
+                            query MyQuery($collection: String!, $index: Int!, $limit: Int!, $market: String!, $orderD: String!) {
+                                nftmarkets(skip: $index, first: $limit, where: { collection: $collection, pricenear_not: 0, market: $market }, orderBy: pricenear, orderDirection: $orderD) {
+                                    id
+                                    collection
+                                    tokenid
+                                    market
+                                    price
+                                    pricenear
+                                    fecha 
+                                }
+                            }
+                        `;
+                        variables = { collection: collection, index: indice, limit: limite, market: marketplace, orderD: orderD }
+                    }
+
+                    const nftmarket = await colsutaGraph(queryGql, variables)
+                    if(nftmarket.length == 0) { break }
+                        
+                    nftmarketfinal = []
+                    nftmarket.forEach(item => {
+                            const delte_market = deleteMarket.find(item2 => item2.token_id == item.tokenid && item2.fecha > item.fecha) 
+                            if(delte_market == undefined ) {
+                                nftmarketfinal.push(item)
+                            }
+                    })
+                    if(nftmarketfinal.length == limitOrigen) {
+                        break;
+                    } else {
+                        limite = (limite - nftmarketfinal.length) + limitOrigen
+                        excess = limite - limitOrigen
+                    }
+                    //console.log(nftmarketfinal.length, limite)        
+                }
+
+                const details = await DetailsCollectioMarket(nftmarketfinal, 'todo')
+                
+                for(let i = 0; i < nftmarketfinal.length; i++){
+                    const cd = details.nftcolecionDetails.find(item => item.tokenid == nftmarketfinal[i].tokenid)
+                    const md = details.marketDetails.find(item => item.market == nftmarketfinal[i].market)
+                    array.push({
+                        collection: nftmarketfinal[i].collection,
+                        token_id: nftmarketfinal[i].tokenid,
+                        owner_id: cd.owner ? cd.owner : '',
+                        precio: nftmarketfinal[i].price,
+                        precio_near: nftmarketfinal[i].pricenear,
+                        base_uri: cd.base_uri ? cd.base_uri : '',
+                        titulo: cd.titulo ? cd.titulo : '',
+                        descripcion: cd.descripcion ? cd.descripcion : '',
+                        media: cd.media ? cd.media : '',
+                        media_pinata: cd.media_pinata ? cd.media_pinata : '',
+                        extra: cd.extra ? cd.extra : '',
+                        reference: cd.reference ? cd.reference : '',
+                        market_name: md.name ? md.name : '',
+                        marketplace: nftmarketfinal[i].market,
+                        market_icon: md.icon ? md.icon : '',
+                        market_web: md.web ? md.web : ''
+                    })
+                }
+
+            }
+                break;
+            case false: {
+                let limitOrigen = parseInt(limit)
+                let limite = parseInt(limit)
+                let indice = parseInt(index)
+                let nftCollectionBdFinal = []
+                let DeleteNftCollection = []
+
+                let count_consulta = 0
+                let nftCollection_length = 0
+
+                const deleteMarket = await DeleteMarket()
+
+                while (10000) {
+                    console.log('paso')
+                    const nftCollection = await nftCollectionBd(limite, indice)
+                    const tokens = nftCollection.length > 0 ? nftCollection.map(item => {return item.tokenid}) : []
+
+                    queryGql = gql`
+                        query MyQuery($collection: String!, $tokenid: [String]!) {
+                            nftmarkets(where: { collection: $collection, pricenear_not: 0, tokenid_in: $tokenid }, 
+                            orderBy: pricenear, orderDirection: asc) {
+                                id
+                                collection
+                                tokenid
+                                market
+                                price
+                                pricenear
+                                fecha 
+                            }
+                        }
+                    `;
+
+                    if(nftCollection.length == 0) { break }
+                    
+                    if(count_consulta > 5 && nftCollection_length == nftCollection.length) { break }
+                    nftCollection_length = nftCollection.length
+
+                    variables = { collection: collection, tokenid: tokens } 
+                    const nftmarket = await colsutaGraph(queryGql, variables)
+                    
+                    DeleteNftCollection = []
+                    nftmarket.forEach(item => {
+                            const delte_market = deleteMarket.find(item2 => item2.token_id == item.tokenid && item2.fecha > item.fecha) 
+                            if(delte_market == undefined ) {
+                                DeleteNftCollection.push(item)
+                            }
+                    })
+
+                    nftCollectionBdFinal = []
+                    nftCollection.forEach(item => {
+                            const nftmarketDelete = DeleteNftCollection.find(item2 => item2.tokenid == item.tokenid) 
+                            if(nftmarketDelete == undefined ) {
+                                nftCollectionBdFinal.push(item)
+                            }
+                    })
+                    if(nftCollectionBdFinal.length == limitOrigen) {
+                        count_consulta = 0
+                        break;
+                    } else {
+                        count_consulta += 1
+                        limite = (limite - nftCollectionBdFinal.length) + limitOrigen
+                        excess = limite - limitOrigen
+                    }
+                }
+                array = nftCollectionBdFinal;
+            }
+            break;
+
+            default: {
+                const deleteMarket = await DeleteMarket()
+
+                const nftCollection = await nftCollectionBd(1, 0)
+                const tokens = nftCollection.length > 0 ? nftCollection.map(item => {return item.tokenid}) : []
+                
+                queryGql = gql`
+                    query MyQuery($collection: String!, $tokenid: [String]!) {
+                        nftmarkets(where: { collection: $collection, pricenear_not: 0, tokenid_in: $tokenid }, 
+                        orderBy: pricenear, orderDirection: asc) {
+                            id
+                            collection
+                            tokenid
+                            market
+                            price
+                            pricenear
+                            fecha 
+                        }
+                    }
+                `;
+                
+                if(nftCollection.length == 0) { break }
+                
+                variables = { collection: collection, tokenid: tokens } 
+                const nftmarket = await colsutaGraph(queryGql, variables)
+                
+                nft_market = []
+                nftmarket.forEach(item => {
+                        const delte_market = deleteMarket.find(item2 => item2.token_id == item.tokenid && item2.fecha > item.fecha) 
+                        if(delte_market == undefined ) {
+                            nft_market.push(item)
+                        }
+                })
+
+                const details = await DetailsCollectioMarket([], "market")
+                
+                nftCollection.forEach(item => {
+                    const findMarket = nft_market.filter(item2 => item2.tokenid == item.tokenid)
+                    let market_name = ""
+                    let marketplace = ""
+                    let market_icon = ""
+                    let market_web = ""
+                    let precio = ""
+                    let precio_near = 0
+                    
+                    function insert() {
+                        array.push({
+                            collection: item.collection,
+                            token_id: item.tokenid,
+                            owner_id: item.owner,
+                            base_uri: item.base_uri,
+                            titulo: item.titulo,
+                            descripcion: item.descripcion,
+                            media: item.media,
+                            media_pinata: item.media_pinata,
+                            extra: item.extra,
+                            reference: item.reference,
+                            market_name: market_name,
+                            marketplace: marketplace,
+                            market_icon: market_icon,
+                            market_web: market_web,
+                            precio: precio,
+                            precio_near: precio_near
+                        })
+                    }
+                    
+                    if(findMarket.length > 0) {
+                        console.log("si pasa")
+                        findMarket.forEach(item3 => {
+                            const md = details.marketDetails.find(item4 => item4.market == item3.market)
+                            market_name = md.name ? md.name : ''
+                            marketplace = item3.market
+                            market_icon = md.icon ? md.icon : ''
+                            market_web = md.web ? md.web : ''
+                            precio = item3.price
+                            precio_near = item3.pricenear
+                            insert()    
+                        })
+                    } else {
+                        insert()
+                    }
+                })
+            }
+                break;
+        }
+        
+        //console.log(array)
+        res.json({excess: excess, data: array})
+    } catch (error) {
+        console.log(error)
+        res.json([])
+    } 
+}
+
+const Collections = async (req, res) => {
+    res.json([])
+}
 
 //RefrescarNft()
 
@@ -442,7 +803,7 @@ async function pruebas() {
 
 module.exports = { BuscarCollection, ListMarketplace, ListMarketplaceCollection, SearchCollections,
                 ListCollections, ListNft, CollectionDetails, BuyOnMarketplace, SearchNft, ListNftOwner,
-                BulkList, BulkListDetails }
+                BulkList, BulkListDetails, Collections }
 
 
 

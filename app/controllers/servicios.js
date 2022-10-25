@@ -10,9 +10,8 @@ const path = require('path');
 const { ParaSwap } = require('paraswap');
 const { response } = require('express');
 */
-const { updateTransactions, updateProjects, UpdateVotes, UpdateVotesUpcoming, update_masivo_collections } = require('./funciones')
+const { Datasellbuy, updateTransactions, updateProjects, UpdateVotes, UpdateVotesUpcoming, update_masivo_collections } = require('./funciones')
 const { ListarNft, CargarRutaIfsImgNft, UpdateNft } = require('./funcionesNft')
-
 
 
 const { utils, Contract, keyStores, KeyPair, Near, Account } = nearAPI
@@ -33,6 +32,8 @@ async function listar() {
     await ListarNft()
     await CargarRutaIfsImgNft()
 }
+
+
 
 async function listar2() {
     const epoch_h = moment().subtract(3, 'd').valueOf()*1000000;
@@ -55,7 +56,8 @@ const servico_updateTransaction = setInterval(async function () {
     console.log('ejecutando servico_updateTransaction')
     try {
         const epoch_h = moment().subtract(30, 'm').valueOf()*1000000;
-        await updateTransactions(epoch_h);
+        //await updateTransactions(epoch_h);
+        await Datasellbuy()
         await updateProjects(epoch_h);
         await UpdateNft(epoch_h)
         await UpdateVotes(epoch_h)

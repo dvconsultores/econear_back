@@ -218,7 +218,7 @@ async function ListarNft() {
                     }
                 }
             }
-            console.log('Ejecutando funcion update marketplace')
+            /*console.log('Ejecutando funcion update marketplace')
             console.log("-----------------------------------------------------------------------------------------------------")
             try {
                 let query = "   create temp TABLE tmp_nft_marketplace ( \
@@ -369,7 +369,7 @@ async function ListarNft() {
 
             } catch (error) {
                 console.log("error actualizando nft_marketplace: ", error)
-            }
+            }*/
         }
         console.log('Culminado listado de nft')
         console.log('Tiempo de ejecución listado nft ')

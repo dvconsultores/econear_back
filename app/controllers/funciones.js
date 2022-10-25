@@ -3,6 +3,8 @@ const { dbConnect, dbConnect2, dbConnect3 } = require('../../config/postgres')
 const nearAPI = require("near-api-js");
 const axios = require('axios');
 const moment = require('moment');
+const { colsutaTheGraph } = require('../graphql/dataThegraph')
+const gql = require('graphql-tag');
 /*
 const secp = require('tiny-secp256k1');
 const ecfacory = require('ecpair');
@@ -27,6 +29,112 @@ keyStore.setKey(NETWORK, SIGNER_ID, keyPair)
 const near = new Near(CONFIG(keyStore))
 const account = new Account(near.connection, SIGNER_ID)
 
+
+
+async function Datasellbuy() {
+    try {
+        const epoch = moment().subtract(2, 'y').valueOf()*1000000;
+        const conn = await dbConnect2()
+
+        while (10000000000000) {
+            console.log('inicio ----------------------------------------------------------------------------------------------------')
+            const result = await conn.query(" select fecha from nft_sellbuy order by fecha desc limit 1 ")
+
+            let fecha = result.rows.length > 0 ? result.rows[0].fecha : epoch.toString()
+            console.log(result.rows)
+            console.log(fecha)
+            queryGql = gql`
+                query MyQuery($fecha: BigInt!) {
+                    sellbuynfts(where: {fecha_gt: $fecha} orderBy: fecha, orderDirection: asc, first: 1000) {
+                        collection
+                        tokenid
+                        market
+                        seller
+                        buyer
+                        fecha
+                        price
+                        pricenear
+                    }
+                }
+            `;
+
+            variables = { fecha: fecha }
+            
+            const sellbuynft = await colsutaTheGraph(queryGql, variables)
+            
+            
+            let rows = sellbuynft.sellbuynfts
+            
+            if(rows.length <= 0) {
+                console.log('fin -------------------------------------------------------------------------------------------------------')
+                break
+            }
+
+            let datos = ''
+            const tamano_row = rows.length      
+            for(var i = 0; i < rows.length; i++) {
+            datos += "('"+rows[i].collection.toString()+"', '"+rows[i].tokenid.toString()+"', '"+rows[i].market.toString()+"', '"+rows[i].seller.toString()+"', \
+                '"+rows[i].buyer.toString()+"', "+rows[i].fecha.toString()+", '"+rows[i].price.toString()+"', "+rows[i].pricenear.toString()+")";
+                
+                datos += i != (tamano_row - 1) ? ", " : ""; 
+            }
+            
+            
+            let tabla_temp_nft_sellbuy = "  CREATE TEMP TABLE tmp_nft_sellbuy ( \
+                collection text NOT NULL, \
+                tokenid text not NULL, \
+                market text NOT NULL, \
+                seller text NOT NULL, \
+                buyer text NOT NULL, \
+                fecha numeric(20) NOT NULL, \
+                price text NOT NULL, \
+                pricenear numeric NOT NULL \
+            ) ";
+
+            let insert_temp_nft_sellbuy = "INSERT INTO tmp_nft_sellbuy ( \
+                collection, \
+                tokenid, \
+                market, \
+                seller, \
+                buyer, \
+                fecha, \
+                price, \
+                pricenear \
+            ) \
+            VALUES " + datos //#+ str(data);
+
+            await conn.query(tabla_temp_nft_sellbuy);
+            await conn.query('COMMIT');
+            console.log("Tabla temporal creada")
+            await conn.query(insert_temp_nft_sellbuy);
+            await conn.query('COMMIT');
+            console.log("Registros insertados en tabla temporal")
+
+            let insert_nft_sellbuy = "  insert into nft_sellbuy \
+                                        select collection, tokenid, market, seller, buyer, fecha, price, pricenear \
+                                        from tmp_nft_sellbuy as t1 \
+                                        where 0 = (select case when (select 1 from nft_sellbuy t2 \
+                                            where t2.fecha = t1.fecha group by 1) = 1 then 1 else 0 end) ";
+
+            await conn.query(insert_nft_sellbuy);
+            await conn.query('COMMIT');
+            console.log("Registros insertados en tabla final nft_sellbuy")
+
+            let delete_temp_nft_sellbuy = "  drop table tmp_nft_sellbuy "
+            await conn.query(delete_temp_nft_sellbuy);
+            await conn.query('COMMIT');
+            console.log("Tabla temporal eliminada")
+            
+            //console.log(array)
+            console.log('fin -------------------------------------------------------------------------------------------------------')
+            
+        }
+        return 'exito'
+    } catch (error) {
+        console.log(error)
+        return error
+    } 
+}
 
 
 async function updateTransactions(epoch_h) {
@@ -548,6 +656,76 @@ async function update_masivo_collections() {
     }
 }
 
+const StastMarket = async (req, res) => {
+    try {
+        const conexion = await dbConnect2()
+                
+                    
+        queryGql_sales = gql`
+            query MyQuery {
+                statsmarketplaces {
+                    id
+                    volumen
+                    floor_sales
+                    floor_sales_data
+                    biggest_sale
+                    biggest_sale_data
+                    market(first: 1, orderBy: sales, orderDirection: desc) {
+                        collection
+                        sales
+                    }
+                }
+            }
+        `;
+        queryGql_volumnen = gql`
+        query MyQuery {
+                statsmarketplaces {
+                    id
+                    market(first: 1, orderBy: volumen, orderDirection: desc) {
+                        collection
+                        volumen
+                    }
+                }
+            }
+        `;
+        
+        const nftmarket_sales = await colsutaGraph(queryGql_sales)
+        const nftmarket_volumen = await colsutaGraph(queryGql_volumnen)
+
+        /*--------------------- data marketplace ------------------------------*/
+        const resp_dmp = await conexion.query(" select marketplace as market, name, icon, web from marketplaces ")
+        const dmp = resp_dmp.rows
+        /*---------------------------------------------------------------------*/
+        
+        let array = []
+        for(let i = 0; i < nftmarket_sales.statsmarketplaces.length; i++){
+            const ms = nftmarket_sales.statsmarketplaces[i]
+            console.log(ms.id)
+            const mv = nftmarket_volumen.statsmarketplaces.find(item => item.id == ms.id)
+            const mp = dmp.find(item => item.market == ms.id)
+            array.push({
+                market: ms.id,
+                market_name: mp.name ? mp.name : '',
+                market_icon: mp.icon ? mp.icon : '',
+                market_web: mp.web ? mp.web : '',
+                volumen_market: ms.volumen,
+                floor_sales: ms.floor_sales,
+                floor_sales_data: ms.floor_sales_data,
+                biggest_sale: ms.biggest_sale,
+                biggest_sale_data: ms.biggest_sale_data,
+                best_selling_collection: ms.market,
+                collection_more_volumen: mv.market ? mv.market : []
+            })
+        }
+        
+        //console.log(array)
+        res.json(array)
+    } catch (error) {
+        console.log(error)
+        res.json([])
+    } 
+}
+
 /*
 async function update_collections() {
     try {
@@ -727,7 +905,7 @@ async function update_masivo_collections() {
 //update_masivo_collections()
 */
 
-module.exports = { updateTransactions, updateProjects, UpdateVotes, UpdateVotesUpcoming, update_masivo_collections }
+module.exports = { Datasellbuy, updateTransactions, updateProjects, UpdateVotes, UpdateVotesUpcoming, update_masivo_collections }
 
 
 
