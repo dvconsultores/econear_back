@@ -6,9 +6,9 @@ const app = express(),
       bodyParser = require("body-parser");
 
 // Certificate
-const privateKey = fs.readFileSync('/etc/letsencrypt/live/defix3.com/privkey.pem', 'utf8');
-const certificate = fs.readFileSync('/etc/letsencrypt/live/defix3.com/cert.pem', 'utf8');
-const ca = fs.readFileSync('/etc/letsencrypt/live/defix3.com/chain.pem', 'utf8');
+const privateKey = fs.readFileSync('/etc/letsencrypt/live/econear.in/privkey.pem', 'utf8');
+const certificate = fs.readFileSync('/etc/letsencrypt/live/econear.in/cert.pem', 'utf8');
+const ca = fs.readFileSync('/etc/letsencrypt/live/econear.in/chain.pem', 'utf8');
 
 const credentials = {
 	key: privateKey,
