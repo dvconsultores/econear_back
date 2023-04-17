@@ -1,12 +1,11 @@
 const express = require('express')
 const router = express.Router()
-const { BuscarCollection, ListMarketplace, SearchCollections, ListCollections, ListMarketplaceCollection, ListNft, 
+const { BuscarCollection, ListMarketplace, ListCollections, ListMarketplaceCollection, ListNft, 
         CollectionDetails, BuyOnMarketplace, SearchNft, ListNftOwner, BulkList, BulkListDetails, Collections
 } = require('../controllers/nft')
 
 router.post('/buscarcollection', BuscarCollection)
 router.post('/listmarketplace', ListMarketplace)
-router.post('/searchcollections', SearchCollections)
 router.post('/listcollections', ListCollections)
 router.post('/listmarketplacecollection', ListMarketplaceCollection)
 router.post('/listnft', ListNft)

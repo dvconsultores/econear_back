@@ -36,11 +36,13 @@ async function Databuy() {
         const epoch = moment().subtract(2, 'y').valueOf()*1000000;
         const conn = await dbConnect2()
 
-        while (20) {
+        while (10000000000000) {
             console.log('inicio ----------------------------------------------------------------------------------------------------')
             const result = await conn.query(" select fecha from nft_buy order by fecha desc limit 1 ")
 
             let fecha = result.rows.length > 0 ? result.rows[0].fecha : epoch.toString()
+            console.log(result.rows)
+            console.log(fecha)
             queryGql = gql`
                 query MyQuery($fecha: BigInt!) {
                     sellbuynfts(where: {fecha_gt: $fecha} orderBy: fecha, orderDirection: asc, first: 1000) {
@@ -140,7 +142,7 @@ async function DataSell() {
         const epoch = moment().subtract(2, 'y').valueOf()*1000000;
         const conn = await dbConnect2()
 
-        while (20) {
+        while (10000000000000) {
             console.log('inicio ----------------------------------------------------------------------------------------------------')
             const result = await conn.query(" select fecha from nft_sell order by fecha desc limit 1 ")
 
@@ -236,168 +238,13 @@ async function DataSell() {
     } 
 }
 
-
-async function UpdateDataMarket(fecha_epoch) {
-    console.log('actualizando nftmarkets')
-    try {
-        const conn = await dbConnect2()
-
-        console.log('inicio ----------------------------------------------------------------------------------------------------')
-        let fecha = fecha_epoch.toString()
-
-        console.log(fecha)
-        
-        queryGql = gql`
-            query MyQuery($fecha: BigInt!) {
-                nftmarkets(where: {fecha_gt: $fecha} orderBy: fecha, orderDirection: asc, first: 1000) {
-                    market
-                    collection
-                    tokenid
-                    owner_id
-                    fecha
-                    price
-                    pricenear
-                }
-            }
-        `;        
-
-        variables = { fecha: fecha }
-        
-        const nftmarkets = await colsutaTheGraph(queryGql, variables)
-
-        let rows = nftmarkets.nftmarkets
-
-        if(rows.length == 0) {
-            console.log('nftmarkets actualizacos')
-            console.log('fin -------------------------------------------------------------------------------------------------------')
-            return {respuesta: true}
-        }
-
-        let datos = ''
-        const tamano_row = rows.length      
-        for(var i = 0; i < rows.length; i++) {
-        datos += "('"+rows[i].market.toString()+"', '"+rows[i].collection.toString()+"', '"+rows[i].tokenid.toString()+"', '"+rows[i].owner_id.toString()+"', \
-            "+rows[i].fecha.toString()+", '"+rows[i].price.toString()+"', "+rows[i].pricenear.toString()+", "+rows[i].fecha.toString()+")";
-            
-            datos += i != (tamano_row - 1) ? ", " : ""; 
-        }
-
-        let tabla_temp_nft_market = "  CREATE TEMP TABLE tmp_nft_market ( \
-            market text NOT NULL, \
-            collection text NOT NULL, \
-            tokenid text NOT NULL, \
-            owner_id text NOT NULL, \
-            fecha numeric(20) NOT NULL, \
-            price text NOT NULL, \
-            pricenear numeric NOT NULL, \
-            fecha_insert numeric(20) NOT NULL \
-        ) ";
-
-        let insert_temp_nft_market = "INSERT INTO tmp_nft_market ( \
-            market, \
-            collection, \
-            tokenid, \
-            owner_id, \
-            fecha, \
-            price, \
-            pricenear, \
-            fecha_insert \
-        ) \
-        VALUES " + datos //#+ str(data);
-
-
-        await conn.query(tabla_temp_nft_market);
-        await conn.query('COMMIT');
-        console.log("Tabla temporal creada")
-        await conn.query(insert_temp_nft_market);
-        await conn.query('COMMIT');
-        console.log("Registros insertados en tabla temporal")
-
-        let insert_nft_market = "  insert into nft_marketplace \
-                                select \
-                                    t.price as precio, t.fecha, t.market as marketplace, t.collection, t.tokenid as token_id, \
-                                    t.pricenear as price_near, t.owner_id, t.fecha_insert \
-                                from tmp_nft_market t \
-                                where 0 = ( \
-                                            select case when ( \
-                                                                select 1 from nft_marketplace m \
-                                                                where m.collection = t.collection \
-                                                                and m.marketplace = t.market \
-                                                                and m.token_id = t.tokenid \
-                                                                ) = 1 \
-                                                    then 1 else 0 end \
-                                            ) \
-        ";
-
-        await conn.query(insert_nft_market);
-        await conn.query('COMMIT');            
-        console.log("Registros insertados en tabla final nft_market")
-
-
-        let update_nft_market = " update nft_marketplace \
-                                        set \
-                                            fecha = t.fecha, \
-                                            precio = t.price, \
-                                            precio_near = t.pricenear, \
-                                            owner_id = t.owner_id \
-                                    from tmp_nft_market t \
-                                    where t.tokenid = nft_marketplace.token_id \
-                                        and t.collection = nft_marketplace.collection \
-                                        and t.market = nft_marketplace.marketplace \
-                                    and t.fecha > nft_marketplace.fecha \
-        ";
-
-        await conn.query(update_nft_market);
-        await conn.query('COMMIT');            
-        console.log("actualizar registros en tabla nft_collection_market")
-
-        console.log('inicio update final ---------------------------------------------------------------------------------------')
-        let update_nft_market_transfer = "   update nft_marketplace \
-                                                set \
-                                                    fecha = tr.fecha, \
-                                                    precio = '0', \
-                                                    precio_near = 0, \
-                                                    owner_id = tr.token_new_owner_account_id \
-                                            from nft_collections_transaction tr \
-                                            where tr.event_kind = 'TRANSFER' \
-                                            and tr.token_id = nft_marketplace.token_id \
-                                            and tr.collection = nft_marketplace.collection \
-                                            and tr.fecha > nft_marketplace.fecha \
-        ";
-
-        await conn.query(update_nft_market_transfer);
-        await conn.query('COMMIT');
-        console.log("Registros actualizados en tabla final nft_market")
-
-        let delete_nft_market = " delete from nft_marketplace  nct \
-                                    where exists (select 1 from nft_collections_transaction \
-                                        where event_kind = 'BURN' and token_id = nct.token_id and collection = nct.collection and fecha > nct.fecha group by 1) \
-        ";
-
-        await conn.query(delete_nft_market);
-        await conn.query('COMMIT');
-        
-        //console.log(array)
-        
-        console.log('votos actualizacos')
-        console.log('fin -------------------------------------------------------------------------------------------------------')
-            
-        return {respuesta: true}
-    } catch (error) {
-        console.log('error: ', error)
-        console.log('Error al actualizacos votos')
-        return {respuesta: false, error: error}
-    }
-}
-
-
-async function DataMarket() {
+async function DataMarket(date_epoch) {
     try {
         const epoch = moment().subtract(2, 'y').valueOf()*1000000;
         const conn = await dbConnect2()
 
-        let v_date_epoch = ''
-        let v2_date_epoch = ''
+        let v_date_epoch = date_epoch.toString()
+        let v2_date_epoch = date_epoch.toString()
 
         // ciclo insertado
         let end_fecha = 0
@@ -406,7 +253,7 @@ async function DataMarket() {
             console.log('inicio ----------------------------------------------------------------------------------------------------')
             const result = await conn.query(" select fecha_insert as fecha from nft_marketplace order by fecha_insert desc limit 1 ")
 
-            let fecha = v_date_epoch == '' ? result.rows.length > 0 ? result.rows[0].fecha : epoch.toString() : v_date_epoch
+            let fecha = date_epoch ? v_date_epoch : result.rows.length > 0 ? result.rows[0].fecha : epoch.toString()
             console.log(result.rows)
             console.log(fecha)
             
@@ -480,6 +327,11 @@ async function DataMarket() {
             await conn.query('COMMIT');
             console.log("Registros insertados en tabla temporal")
 
+            if(date_epoch) {
+                const result_fecha = await conn.query(" select fecha from tmp_nft_market order by fecha desc limit 1 ");
+                v_date_epoch = result_fecha.rows.length > 0 ? result_fecha.rows[0].fecha : v_date_epoch
+            }
+
             let insert_nft_market = "  insert into nft_marketplace \
                                     select \
                                         cast(t.price as text) as precio, t.fecha, t.market as marketplace, t.collection, t.tokenid as token_id, \
@@ -499,10 +351,8 @@ async function DataMarket() {
             await conn.query(insert_nft_market);
             await conn.query('COMMIT');            
             console.log("Registros insertados en tabla final nft_market")
-            
-            const result_fecha = await conn.query(" select fecha from tmp_nft_market order by fecha desc limit 1 ");
-            v_date_epoch = v_date_epoch == '' ? result_fecha.rows.length > 0 ? result_fecha.rows[0].fecha.toString() : fecha : v_date_epoch
-            
+
+
             let delete_temp_nft_market = "  drop table tmp_nft_market "
             await conn.query(delete_temp_nft_market);
             await conn.query('COMMIT');
@@ -522,7 +372,7 @@ async function DataMarket() {
             console.log('inicio update ----------------------------------------------------------------------------------------------')
             const result = await conn.query(" select fecha from nft_marketplace order by fecha desc limit 1 ")
 
-            let fecha = v2_date_epoch == '' ? result.rows.length > 0 ? result.rows[0].fecha.toString() : epoch.toString() : v2_date_epoch
+            let fecha = date_epoch ? v2_date_epoch : result.rows.length > 0 ? result.rows[0].fecha : epoch.toString()
             console.log(result.rows)
             console.log(fecha)
             
@@ -596,6 +446,11 @@ async function DataMarket() {
             await conn.query('COMMIT');
             console.log("Registros insertados en tabla temporal")
 
+            if(date_epoch) {
+                const result_fecha = await conn.query(" select fecha from tmp_nft_market order by fecha desc limit 1 ");
+                v2_date_epoch = result_fecha.rows.length > 0 ? result_fecha.rows[0].fecha : v2_date_epoch
+            }
+
             let update_nft_market = " update nft_marketplace \
                                         set \
                                             fecha = t.fecha, \
@@ -612,9 +467,6 @@ async function DataMarket() {
             await conn.query(update_nft_market);
             await conn.query('COMMIT');
             console.log("Registros actualizados en tabla final nft_market")
-
-            const result_fecha = await conn.query(" select fecha from tmp_nft_market order by fecha desc limit 1 ");
-            v2_date_epoch = v2_date_epoch == '' ? result_fecha.rows.length > 0 ? result_fecha.rows[0].fecha.toString() : fecha : v2_date_epoch
 
             let delete_temp_nft_market = "  drop table tmp_nft_market "
             await conn.query(delete_temp_nft_market);
@@ -661,114 +513,8 @@ async function DataMarket() {
     } 
 }
 
-async function HistCollection(){
-    try {
-        const epoch_h = moment().subtract(24, 'h').valueOf()*1000000;
-        await UpdateDataMarket(epoch_h)
-        const fecha = moment(moment().format('DD/MM/YYYY, HH:00:00').toString(), 'DD/MM/YYYY, HH:00:00').valueOf()*1000000;
-        console.log('fecha floor price - ', fecha)
-        
-        const conn = await dbConnect2()
 
-        const result_fecha = await conn.query(" select max(fecha) as fecha from history_collections ")
-        
-        if(result_fecha.rows.length == 0) return false
-
-        if(parseInt(fecha) > parseInt(result_fecha.rows[0].fecha)) {
-            console.log('si esta funcionando')
-            let query = "   insert into history_collections \
-                            select \
-                                collection, owners, floor_price, total_supply * floor_price as market_cap, \
-                                total_supply, total_venta, average_price, cast(fecha as numeric(20)) as fecha, \
-                                (select coalesce(json_agg(jsonlist), '[]') from ( \
-                                    select nm.collection, nm.token_id, nm.precio_near from nft_marketplace nm \
-                                    where nm.collection = sub.collection \
-                                    and nm.precio_near > 0 \
-                                ) jsonlist ) as items_sell \
-                            from ( \
-                                select \
-                                                        collection, \
-                                                        (select count(ow.owners) from ( \
-                                                        select nc.token_new_owner_account_id as owners \
-                                                        from nft_collections nc where nc.collection = nm.collection \
-                                                        group by nc.token_new_owner_account_id) ow ) as owners, \
-                                                        min(nm.precio) as precio, \
-                                                        min(precio_near) as floor_price, \
-                                                        c.total_supply, \
-                                                        sum(precio_near) as total_venta, \
-                                                        avg(precio_near) as average_price, \
-                                                        cast($1 as numeric(20)) as fecha \
-                                                    from nft_marketplace nm \
-                                                    inner join collections c on c.nft_contract = nm.collection \
-                                                    where precio_near > 0 \
-                                                    group by collection, cast($1 as numeric(20)), c.total_supply \
-                            ) sub     \
-            ";
-
-            await conn.query(query, [fecha])
-            console.log('se inserto la data con exito')
-            return true
-        } else if(parseInt(fecha) == parseInt(result_fecha.rows[0].fecha)) {
-            let query = "   update history_collections \
-                            set  \
-                                owners = sub_update.owners,  \
-                                floor_price = sub_update.floor_price,  \
-                                market_cap = sub_update.market_cap, \
-                                total_supply = sub_update.total_supply,  \
-                                total_venta = sub_update.total_venta,  \
-                                average_price = sub_update.average_price,  \
-                                fecha = sub_update.fecha, \
-                                items_sell = sub_update.items_sell \
-                            from (  select \
-                                        collection, owners, floor_price, total_supply * floor_price as market_cap, \
-                                        total_supply, total_venta, average_price, cast(fecha as numeric(20)) as fecha, \
-                                        (select coalesce(json_agg(jsonlist), '[]') from ( \
-                                            select nm.collection, nm.token_id, nm.precio_near from nft_marketplace nm \
-                                            where nm.collection = sub.collection \
-                                            and nm.precio_near > 0 \
-                                        ) jsonlist ) as items_sell \
-                                    from ( \
-                                        select \
-                                                                collection, \
-                                                                (select count(ow.owners) from ( \
-                                                                select nc.token_new_owner_account_id as owners \
-                                                                from nft_collections nc where nc.collection = nm.collection \
-                                                                group by nc.token_new_owner_account_id) ow ) as owners, \
-                                                                min(nm.precio) as precio, \
-                                                                min(precio_near) as floor_price, \
-                                                                c.total_supply, \
-                                                                sum(precio_near) as total_venta, \
-                                                                avg(precio_near) as average_price, \
-                                                                cast($1 as numeric(20)) as fecha \
-                                                            from nft_marketplace nm \
-                                                            inner join collections c on c.nft_contract = nm.collection \
-                                                            where precio_near > 0 \
-                                                            group by collection, cast($1 as numeric(20)), c.total_supply \
-                                    ) sub     \
-                            ) sub_update \
-                            where sub_update.collection = history_collections.collection \
-                            and sub_update.fecha = history_collections.fecha \
-            ";
-
-            await conn.query(query, [fecha])
-            console.log('se actualizo la data con exito')
-            return true
-        }
-
-
-        //1667325600000000000
-        //1667325600000000000 
-        //1667329200000000000
-        //1667329200000000000
-
-    } catch (error) {
-        console.log(error)
-        return error
-    }
-} 
-
-
-async function HistFloor2(epoch_h) {
+async function HistFloor(epoch_h) {
     try {
         const conn = await dbConnect2();
         
@@ -922,6 +668,137 @@ async function HistFloor2(epoch_h) {
     }
 }
 
+
+async function updateTransactions(epoch_h) {
+    try {
+        const marketplace_array = "'backend.monkeonnear.near','apollo42.near', 'marketplace.paras.near', 'higgsfield.near', 'zoneart.near'";
+        console.log(epoch_h)
+        let offset = 0;
+        let detener = false;
+        for(var i = 0; i < 1000; i++) {
+            if(detener){break}
+            for(var j = 0; j < 20; j++) {
+                try {
+                    const conn_origen = await dbConnect();
+                    const conn = await dbConnect2();
+                    
+                    console.log('Tiempo inicio de ejecución  transactions ', ' - offset = ', offset)
+                    let query = "   select \
+                                x.receipt_id , x.index_in_action_receipt, cast(x.args as text) as args, x.receipt_predecessor_account_id, x.receipt_receiver_account_id, \
+                                cast(x.receipt_included_in_block_timestamp as char(20)) as receipt_included_in_block_timestamp, \
+                                eo.executed_in_block_hash, cast(eo.executed_in_block_timestamp as char(20)) as executed_in_block_timestamp, \
+                                eo.index_in_chunk, eo.executor_account_id \
+                                FROM public.action_receipt_actions x \
+                                inner join execution_outcomes eo on x.receipt_id = eo.receipt_id \
+                                where x.receipt_included_in_block_timestamp >= $1 \
+                                and cast(x.action_kind as text) = 'FUNCTION_CALL' \
+                                and eo.status = 'SUCCESS_VALUE' \
+                                and (receipt_predecessor_account_id in ("+marketplace_array+") \
+                                or receipt_receiver_account_id in ("+marketplace_array+") )  \
+                                limit 2000 offset $2 ";
+
+                    console.log('Consultando transactions')
+
+                    const resultados = await conn_origen.query(query, [epoch_h, offset]);
+                    const rows = resultados.rows;
+
+                    if(rows.length == 0) {
+                        detener = true
+                        break;
+                    }
+                    
+                    console.log('----------------------------------------------------------------------------------------------------')
+                    let datos = ''
+                    const tamano_row = rows.length      
+                    for(var ii = 0; ii < rows.length; ii++) {
+                    datos += "('"+rows[ii].receipt_id.toString()+"', "+rows[ii].index_in_action_receipt.toString()+", '"+rows[ii].args.toString()+"', \
+                        '"+rows[ii].receipt_predecessor_account_id.toString()+"', '"+rows[ii].receipt_receiver_account_id.toString()+"', \
+                        "+rows[ii].receipt_included_in_block_timestamp.toString()+", '"+rows[ii].executed_in_block_hash.toString()+"', \
+                        "+rows[ii].executed_in_block_timestamp.toString()+", "+rows[ii].index_in_chunk.toString()+", '"+rows[ii].executor_account_id.toString()+"')";
+                        
+                        datos += ii != (tamano_row - 1) ? ", " : ""; 
+                    }
+                    console.log('----------------------------------------------------------------------------------------------------')
+                    
+                    if(rows.length == 0) {
+                        //cursorO.close  # Cerrar cursor
+
+                        //conn.close()  # Cerrando conección
+                        //conn_origen.close()  # Cerrando conección
+                        console.log('fin consulta transactions')
+                        console.log('Tiempo de ejecución transactions ')
+                        break;
+                    }
+                    
+                    let query2 = "  CREATE TEMP TABLE tmp_transaction ( \
+                                    receipt_id text NULL, \
+                                    index_in_action_receipt int4 NULL, \
+                                    args json NULL, \
+                                    receipt_predecessor_account_id text NULL, \
+                                    receipt_receiver_account_id text NULL, \
+                                    receipt_included_in_block_timestamp numeric(20) NULL, \
+                                    executed_in_block_hash text NULL, \
+                                    executed_in_block_timestamp numeric(20) NULL, \
+                                    index_in_chunk int8 NULL, \
+                                    executor_account_id text NULL \
+                                ) ";
+
+                    let query3 = "INSERT INTO tmp_transaction ( \
+                                    receipt_id, \
+                                    index_in_action_receipt, \
+                                    args, \
+                                    receipt_predecessor_account_id, \
+                                    receipt_receiver_account_id, \
+                                    receipt_included_in_block_timestamp, \
+                                    executed_in_block_hash, \
+                                    executed_in_block_timestamp, \
+                                    index_in_chunk, \
+                                    executor_account_id \
+                                ) \
+                                VALUES " + datos //#+ str(data);
+                    
+                    console.log("creando tabla temporal")
+                    await conn.query(query2);
+                    await conn.query('COMMIT');
+                    console.log("insertando tabla temporal")
+                    await conn.query(query3);
+                    await conn.query('COMMIT');
+                    console.log("insertando tabla temporal")
+
+                    console.log('insertando en tabla final')
+                        
+                    let query4 = "  insert into transaction \
+                                select receipt_id, index_in_action_receipt , args, receipt_predecessor_account_id, receipt_receiver_account_id, \
+                                receipt_included_in_block_timestamp, executed_in_block_hash, executed_in_block_timestamp , index_in_chunk, \
+                                executor_account_id, args->>'method_name' as method_name \
+                                from tmp_transaction as t \
+                                where 0 = (select case when (select 1 from transaction t2 \
+                                    where t2.receipt_id = t.receipt_id and t2.index_in_action_receipt = t.index_in_action_receipt \
+                                    group by 1) = 1 then 1 else 0 end) ";
+
+                    await conn.query(query4);
+                    await conn.query('COMMIT');
+
+                    console.log('fin consulta transactions')
+                
+                    offset += 2000;
+                    console.log('Tiempo de ejecución transactions ', ' - offset = ', offset)
+                    
+                    break
+                } catch (error) {     
+                    //conn.close()  //# Cerrando conección
+                    //conn_origen.close()  //# Cerrando conección
+                    console.log('Error cargaTransaction: ', error)
+                }
+            }
+        }
+    } catch (error) {
+        console.log('error 1: ', error)
+        res.json({respuesta: error})
+    }
+}
+
+
 async function updateProjects(fecha_epoch) {    
     try {
         const epoch = moment().subtract(200, 'd').valueOf()*1000000;
@@ -1051,6 +928,43 @@ async function updateProjects(fecha_epoch) {
         console.log('projects actualizacos')
         console.log('fin -------------------------------------------------------------------------------------------------------')
 
+
+
+        /*const conn = await dbConnect2();
+        
+        console.log('Tiempo inicio de ejecución  transactions ')
+        let query = "   insert into projects \
+                        select \
+                            receipt_predecessor_account_id as user_creation, \
+                            cast(receipt_included_in_block_timestamp as numeric(20)) as fecha, \
+                            cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->'items'->>'project_name' as project_name, \
+                            cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->'items'->>'descripcion' as descripcion, \
+                            cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->'items'->>'email' as email, \
+                            cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->'items'->>'discord_id' as discord_id, \
+                            cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->'items'->>'website' as website, \
+                            cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->'items'->>'twiter' as twiter, \
+                            cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->'items'->>'telegram' as telegram, \
+                            cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->'items'->>'discord_server' as discord_server, \
+                            cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->'items'->>'upcoming' as bool) as upcoming, \
+	                        cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->'items'->>'already' as bool) as already, \
+                            cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->'items'->>'fecha_lanzamiento' as numeric(10)) as fecha_lanzamiento, \
+                            cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->'items'->>'id_contract_project' as id_contract_project, \
+                            false as listado \
+                        from transaction t \
+                        where receipt_included_in_block_timestamp >= $1 \
+                        and receipt_receiver_account_id = $2 \
+                        and method_name = 'addproject' \
+                        and 0 = (select case when (select 1 from projects \
+                        where id_contract_project = cast(convert_from(decode(t.args->>'args_base64', 'base64'), 'UTF8') as json)->'items'->>'id_contract_project') = 1 then 1 else 0 end) ";
+
+        console.log('Consultando nuevos projectos')
+
+        await conn.query(query, [epoch_h, process.env.CONTRACT_NAME]);
+        await conn.query("commit");*/
+        
+        
+        
+
         return {respuesta: true}
         
     } catch (error) {
@@ -1061,6 +975,16 @@ async function updateProjects(fecha_epoch) {
 
 async function listarCollections() {
     try {
+        //const { top } = req.body
+        // const tiempoTranscurrido = moment(moment().subtract(24, 'h').format('DD/MM/YYYY'), 'DD/MM/YYYY').valueOf();
+        // const fecha2 = (new Date(new Date(tiempoTranscurrido).toLocaleDateString()).getTime()/1000.0)*1000000000;
+
+        //const fecha = moment(moment().format('DD/MM/YYYY'), 'DD/MM/YYYY').valueOf()*1000000;
+        // const fecha = moment().subtract(24, 'h').valueOf()*1000000;
+        
+        // console.log(fecha)
+        // console.log(fecha2)
+
         const conexion2 = await dbConnect2()
         const conexion = await dbConnect()
         
@@ -1419,13 +1343,13 @@ async function update_masivo_collections() {
         const conexion = await dbConnect()
 
         await conexion2.query("insert into collections (nft_contract, owner_id, listar_collections) \
-                                select t.collection, t.collection, false \
-                                from nft_sell t  \
-                                where t.collection <> 'x.paras.near' \
-                                and t.collection not in ((select c.nft_contract from collections c)) \
-                                group by \
-                                    t.collection \
-        ")
+                                                    select t.receipt_receiver_account_id, t.receipt_receiver_account_id, false \
+                                                    from transaction t  \
+                                                    where t.method_name = 'nft_transfer_payout' \
+                                                    and t.receipt_receiver_account_id <> 'x.paras.near' \
+                                                    and t.receipt_receiver_account_id not in ((select c.nft_contract from collections c)) \
+                                                    group by \
+                                                        t.receipt_receiver_account_id")
         
         const resultados = await conexion2.query("select nft_contract, fecha_creacion from collections")
 
@@ -1487,7 +1411,8 @@ async function update_masivo_collections() {
                                                     datas[i].nft_contract])
                 
             }
-            await listarCollectionsMarketplace(datas[i].nft_contract)
+            console.log(arreglo);
+            
         } catch (error) {
             console.log('error 2: ', error)
             return error
@@ -1570,7 +1495,186 @@ const StastMarket = async (req, res) => {
     } 
 }
 
-module.exports = { Databuy, DataSell, UpdateDataMarket, DataMarket, HistCollection, updateProjects, UpdateVotes, UpdateVotesUpcoming, update_masivo_collections, listarCollectionsMarketplace }
+/*
+async function update_collections() {
+    try {
+        //const { top } = req.body
+        const tiempoTranscurrido = moment(moment().subtract(24, 'h').format('DD/MM/YYYY'), 'DD/MM/YYYY').valueOf();
+        const fecha2 = (new Date(new Date(tiempoTranscurrido).toLocaleDateString()).getTime()/1000.0)*1000000000;
+
+        //const fecha = moment(moment().format('DD/MM/YYYY'), 'DD/MM/YYYY').valueOf()*1000000;
+        const fecha = moment().subtract(24, 'h').valueOf()*1000000;
+        
+        console.log(fecha)
+        console.log(fecha2)
+        const conexion2 = await dbConnect2()
+        const conexion = await dbConnect()
+        
+        const resultados = await conexion2.query("select nft_contract, fecha_creacion from collections where fecha_creacion is null")
+
+        const arreglo = [];
+        let fecha_creacion = null;
+        let total_supply = "0";
+        try {
+            const datas = resultados.rows;
+            for(var i = 0; i < datas.length; i++) {
+
+                if(datas[i].fecha_creacion == null){
+
+                    const response_account = await conexion.query("select r.included_in_block_timestamp as fecha_creacion from accounts a \
+                                                      inner join receipts r on a.created_by_receipt_id = r.receipt_id \
+                                                      where account_id = $1 ", [datas[i].nft_contract]);
+                    fecha_creacion = response_account.rows[0].fecha_creacion;
+                } else {
+                    fecha_creacion = datas[i].fecha_creacion;
+                }
+                                                      
+                console.log(fecha_creacion)
+                console.log(datas[i].nft_contract)
+                
+                const contract = new Contract(account, datas[i].nft_contract, {
+                    viewMethods: ['nft_total_supply', 'nft_metadata'],
+                    sender: account
+                })
+                try {
+                    const response_supply = await contract.nft_total_supply();
+                    total_supply = response_supply;
+                } catch (error) {
+                    total_supply = "0"
+                    console.log(error)
+                }
+                const response_metadata = await contract.nft_metadata()
+                
+                console.log("total supply:" + total_supply)
+
+                await conexion2.query("update collections \
+                                                 set \
+                                                 name = $1, \
+                                                 symbol = $2, \
+                                                 icon = $3, \
+                                                 base_uri = $4, \
+                                                 reference = $5, \
+                                                 fecha_creacion = $6, \
+                                                 total_supply = $7 \
+                                                 where \
+                                                    nft_contract = $8 \
+                                                ", [response_metadata.name,
+                                                    response_metadata.symbol,
+                                                    response_metadata.icon,
+                                                    response_metadata.base_uri,
+                                                    response_metadata.reference,
+                                                    fecha_creacion,
+                                                    total_supply,
+                                                    datas[i].nft_contract])
+                
+            }
+            console.log(arreglo);
+            
+        } catch (error) {
+            console.log('error 2: ', error)
+            return error
+        }
+        
+        return arreglo
+    } catch (error) {
+        console.log('error 1: ', error)
+        return error
+    }
+}
+
+async function update_masivo_collections() {
+    try {
+        //const { top } = req.body
+        const tiempoTranscurrido = moment(moment().subtract(24, 'h').format('DD/MM/YYYY'), 'DD/MM/YYYY').valueOf();
+        const fecha2 = (new Date(new Date(tiempoTranscurrido).toLocaleDateString()).getTime()/1000.0)*1000000000;
+
+        //const fecha = moment(moment().format('DD/MM/YYYY'), 'DD/MM/YYYY').valueOf()*1000000;
+        const fecha = moment().subtract(24, 'h').valueOf()*1000000;
+        
+        console.log(fecha)
+        console.log(fecha2)
+        const conexion2 = await dbConnect2()
+        const conexion = await dbConnect()
+        
+        const resultados = await conexion2.query("select nft_contract, fecha_creacion from collections")
+
+   
+        const arreglo = [];
+        let fecha_creacion = null;
+        let total_supply = "0";
+        try {
+            const datas = resultados.rows;
+            for(var i = 0; i < datas.length; i++) {
+
+                if(datas[i].fecha_creacion == null){
+
+                    const response_account = await conexion.query("select r.included_in_block_timestamp as fecha_creacion from accounts a \
+                                                      inner join receipts r on a.created_by_receipt_id = r.receipt_id \
+                                                      where account_id = $1 ", [datas[i].nft_contract]);
+                    fecha_creacion = response_account.rows[0].fecha_creacion;
+                } else {
+                    fecha_creacion = datas[i].fecha_creacion;
+                }
+                                                      
+                console.log(fecha_creacion)
+                console.log(datas[i].nft_contract)
+                
+                const contract = new Contract(account, datas[i].nft_contract, {
+                    viewMethods: ['nft_total_supply', 'nft_metadata'],
+                    sender: account
+                })
+                try {
+                    const response_supply = await contract.nft_total_supply();
+                    total_supply = response_supply;
+                } catch (error) {
+                    total_supply = "0"
+                    console.log(error)
+                }
+
+                const response_metadata = await contract.nft_metadata()
+                
+                console.log("total supply:" + total_supply)
+
+                await conexion2.query("update collections \
+                                                 set \
+                                                 name = $1, \
+                                                 symbol = $2, \
+                                                 icon = $3, \
+                                                 base_uri = $4, \
+                                                 reference = $5, \
+                                                 fecha_creacion = $6, \
+                                                 total_supply = $7 \
+                                                 where \
+                                                    nft_contract = $8 \
+                                                ", [response_metadata.name,
+                                                    response_metadata.symbol,
+                                                    response_metadata.icon,
+                                                    response_metadata.base_uri,
+                                                    response_metadata.reference,
+                                                    fecha_creacion,
+                                                    total_supply,
+                                                    datas[i].nft_contract])
+                
+            }
+            console.log(arreglo);
+            
+        } catch (error) {
+            console.log('error 2: ', error)
+            return error
+        }
+        
+        return arreglo
+    } catch (error) {
+        console.log('error 1: ', error)
+        return error
+    }
+}
+
+//update_collections()
+//update_masivo_collections()
+*/
+
+module.exports = { Databuy, DataSell, DataMarket, HistFloor, updateTransactions, updateProjects, UpdateVotes, UpdateVotesUpcoming, update_masivo_collections }
 
 
 

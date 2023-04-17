@@ -8,7 +8,7 @@ const InMemoryCache = require('apollo-cache-inmemory').InMemoryCache;
 
 const client = new ApolloClient({
     link: createHttpLink({
-        uri: "https://api.thegraph.com/subgraphs/name/hrpalencia/pruebas2",//"https://api.thegraph.com/subgraphs/name/hrpalencia/pruebas2",
+        uri: "https://api.thegraph.com/subgraphs/name/hrpalencia/pruebas3",//"https://api.thegraph.com/subgraphs/name/hrpalencia/pruebas2",
         fetch: fetch
     }),
     cache: new InMemoryCache()
@@ -70,7 +70,6 @@ const colsutaGraph = async (query, variables) => {
 const colsutaTheGraph = async (query, variables) => {
     try {
         if(!variables) {
-            console.log('paso por no variable')
             const result = await client.query({
                 query
             })
@@ -91,4 +90,38 @@ const colsutaTheGraph = async (query, variables) => {
     }
 }
 
-module.exports = { pru, colsutaGraph, colsutaTheGraph }
+
+const client2 = new ApolloClient({
+    link: createHttpLink({
+        uri: "https://api.thegraph.com/subgraphs/name/hrpalencia/prueba4",//"https://api.thegraph.com/subgraphs/name/hrpalencia/pruebas2",
+        fetch: fetch
+    }),
+    cache: new InMemoryCache()
+});
+
+
+const colsutaTheGraph2 = async (query, variables) => {
+    try {
+        if(!variables) {
+            const result = await client2.query({
+                query
+            })
+            return result.data
+        } else {
+            const result = await client2.query({
+                query,
+                variables
+            })
+            //console.log(result.data.nftmarkets)
+            return result.data
+        }
+    } catch(error) {
+        //console.log('----------------------------------------------------------------------------------------')
+        //console.log(error)
+        //console.log('----------------------------------------------------------------------------------------')
+        return []
+    }
+}
+
+
+module.exports = { pru, colsutaGraph, colsutaTheGraph, colsutaTheGraph2 }

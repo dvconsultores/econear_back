@@ -11,7 +11,7 @@ const { ParaSwap } = require('paraswap');
 const { response } = require('express');
 */
 
-const { listarCollectionsMarketplace } = require('./funciones')
+
 
 
 const { utils, Contract, keyStores, KeyPair, Near, Account } = nearAPI
@@ -55,7 +55,7 @@ async function ListarNft() {
                         query += " limit 20000 offset ";
                         query += offset.toString();
 
-                        console.log('aqui paso 1')
+                        console.log('aqui paso')
 
                         console.log('Consultando nft')
                         
@@ -89,7 +89,7 @@ async function ListarNft() {
                                 token_id text NULL, \
                                 event_kind text NULL, \
                                 token_new_owner_account_id text NULL, \
-                                token_old_owner_account_id text null \
+                                token_old_owner_account_id text null, \
                             ) ";
 
                         let query3 = "INSERT INTO tmp_nft_a ( \
@@ -99,7 +99,7 @@ async function ListarNft() {
                                         token_id, \
                                         event_kind, \
                                         token_new_owner_account_id, \
-                                        token_old_owner_account_id \
+                                        token_old_owner_account_id, \
                                     ) \
                                     VALUES " + datos.toString();
 
@@ -205,8 +205,7 @@ async function ListarNft() {
                         await conn_destino.query("commit")
                         console.log('paso 4')
                         
-                        await listarCollectionsMarketplace(row[x].nft_contract)
-
+                        
                         console.log('fin consulta transactions')
 
                         offset += 20000;
@@ -222,6 +221,158 @@ async function ListarNft() {
                     }
                 }
             }
+            /*console.log('Ejecutando funcion update marketplace')
+            console.log("-----------------------------------------------------------------------------------------------------")
+            try {
+                let query = "   create temp TABLE tmp_nft_marketplace ( \
+                                    precio text NULL, \
+                                    fecha numeric(20) NULL, \
+                                    marketplace text NULL, \
+                                    collection text NULL, \
+                                    token_id text NULL \
+                                ) "
+                ;
+                
+                let query2 = "  insert into tmp_nft_marketplace \
+                                select \
+                                    cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'price' as precio, \
+                                    receipt_included_in_block_timestamp as fecha, \
+                                    receipt_receiver_account_id as marketplace, \
+                                    receipt_predecessor_account_id as collection,\
+                                    cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id' as token_id \
+                                from transaction tr1 \
+                                inner join ( \
+                                            select \
+                                                max(receipt_included_in_block_timestamp) as fecha, \
+                                                cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id' as token_id, \
+                                                receipt_receiver_account_id as marketplace, \
+                                                receipt_predecessor_account_id as collection \
+                                            from transaction \
+                                            where receipt_predecessor_account_id = $1 \
+                                            and method_name = 'nft_on_approve' \
+                                            and cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'market_type' = 'sale' \
+                                            group by cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id', \
+                                            receipt_predecessor_account_id, receipt_receiver_account_id \
+                                ) tr2 on  tr2.fecha = tr1.receipt_included_in_block_timestamp \
+                                            and tr2.token_id = cast(convert_from(decode(tr1.args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id' \
+                                            and tr2.marketplace = tr1.receipt_receiver_account_id \
+                                            and tr2.collection = tr1.receipt_predecessor_account_id \
+                                where receipt_predecessor_account_id = $2 \
+                                and method_name = 'nft_on_approve' \
+                                and cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'market_type' = 'sale' \
+                                and cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id' not in (select token_id from tmp_nft_marketplace \
+                                            where marketplace = tr1.receipt_receiver_account_id \
+                                            and collection = tr1.receipt_predecessor_account_id) "
+                ;
+                
+                let query3 = "  insert into collections_marketplace \
+                                select \
+                                    sub.collection, \
+                                    sub.marketplace \
+                                from ( \
+                                select \
+                                    receipt_predecessor_account_id as collection, \
+                                    receipt_receiver_account_id as marketplace \
+                                from transaction \
+                                where receipt_predecessor_account_id = $1 \
+                                and method_name = 'nft_on_approve' \
+                                and cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'market_type' = 'sale' \
+                                group by \
+                                    receipt_receiver_account_id, receipt_predecessor_account_id \
+                                ) sub \
+                                where sub.collection not in (select collection from collections_marketplace mc where mc.collection = sub.collection and mc.marketplace = sub.marketplace) \
+                ";
+
+                let query4 = "  delete from tmp_nft_marketplace  nct \
+				                where exists (select 1 from nft_collections_transaction where token_id = nct.token_id and collection = nct.collection and fecha > nct.fecha) \
+                ";
+
+                let query5 = "  update tmp_nft_marketplace \
+                                set \
+                                    precio = cast(cast(convert_from(decode(tr1.args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'price', \
+                                    fecha = tr1.receipt_included_in_block_timestamp \
+                                from transaction tr1 \
+                                inner join ( \
+                                            select \
+                                                    max(receipt_included_in_block_timestamp) as fecha, \
+                                                    cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id' as token_id, \
+                                                    receipt_receiver_account_id as marketplace, \
+                                                    receipt_predecessor_account_id as collection, \
+                                                    method_name as metodo, \
+                                                    cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'market_type' as market_type \
+                                            from transaction \
+                                            where receipt_predecessor_account_id = $1 \
+                                            and method_name = 'nft_on_approve' \
+                                            and cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'market_type' = 'sale' \
+                                            group by \
+                                                    cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id', receipt_predecessor_account_id, \
+                                                    receipt_receiver_account_id, receipt_predecessor_account_id, method_name, \
+                                                    cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'market_type' \
+                                ) tr2 on  tr2.fecha = tr1.receipt_included_in_block_timestamp \
+                                            and tr2.token_id = cast(convert_from(decode(tr1.args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id' \
+                                            and tr2.marketplace = tr1.receipt_receiver_account_id \
+                                            and tr2.collection = tr1.receipt_predecessor_account_id \
+                                            and tr2.metodo = tr1.method_name \
+                                            and tr2.market_type = cast(cast(convert_from(decode(tr1.args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'market_type' \
+                                where tr2.token_id = tmp_nft_marketplace.token_id and tr2.marketplace = tmp_nft_marketplace.marketplace and tr2.fecha > tmp_nft_marketplace.fecha \
+                ";
+
+                let query6 = "  insert into nft_marketplace \
+                                select t.precio, t.fecha, t.marketplace, t.collection, t.token_id from tmp_nft_marketplace t \
+                                where token_id not in (select token_id from nft_marketplace m where m.collection = t.collection and m.marketplace = t.marketplace)  \
+                ";
+
+                let query7 = "  update nft_marketplace \
+                                set \
+                                    fecha = t.fecha, \
+                                    precio = t.precio \
+                            from tmp_nft_marketplace t \
+                            where t.token_id = nft_marketplace.token_id \
+                                and t.collection = nft_marketplace.collection \
+                                and t.marketplace = nft_marketplace.marketplace \
+                            and t.fecha > nft_marketplace.fecha \
+                ";
+
+                let query8 = "  drop table tmp_nft_marketplace ";
+
+
+
+                let query9 = " update collections set listar_collections = true where nft_contract = $1 ";
+                if(detener) {
+                    const conn_destino = await dbConnect2()
+
+                    await conn_destino.query(query)
+                    await conn_destino.query("commit")
+                    console.log("query ejecutado")
+                    await conn_destino.query(query2, [row[x].nft_contract, row[x].nft_contract])
+                    await conn_destino.query("commit")
+                    console.log("query2 ejecutado")
+                    await conn_destino.query(query3, [row[x].nft_contract])
+                    await conn_destino.query("commit")
+                    console.log("query3 ejecutado")
+                    await conn_destino.query(query4)
+                    await conn_destino.query("commit")
+                    console.log("query4 ejecutado")
+                    await conn_destino.query(query5, [row[x].nft_contract])
+                    await conn_destino.query("commit")
+                    console.log("query5 ejecutado")
+                    await conn_destino.query(query7)
+                    await conn_destino.query("commit")
+                    console.log("query6 ejecutado")
+                    await conn_destino.query(query6)
+                    await conn_destino.query("commit")
+                    console.log("query7 ejecutado")
+                    await conn_destino.query(query8)
+                    await conn_destino.query("commit")
+                    console.log("query8 ejecutado")
+                    await conn_destino.query(query9, [row[x].nft_contract])
+                    await conn_destino.query("commit")
+                    console.log("query9 ejecutado")
+                }
+
+            } catch (error) {
+                console.log("error actualizando nft_marketplace: ", error)
+            }*/
         }
         console.log('Culminado listado de nft')
         console.log('Tiempo de ejecución listado nft ')
@@ -290,165 +441,6 @@ async function CargarRutaIfsImgNft() {
     }
 }
 
-async function CargarJsonAtributosNft2() {
-    try {
-        const conexion = await dbConnect2() 
-        const intervalo = await setInterval(async function () { 
-        /*const response_nft = await conexion.query("select \
-                                                            nc.collection, nc.token_id, c.base_uri,  \
-                                                        from nft_collections3 nc \
-                                                        inner join collections c on c.nft_contract = nc.collection \
-                                                        where titulo is null"
-        );*/
-        
-        let ciclos = 1
-        //while (ciclos) {                                           
-            console.log('ciclo #', ciclos)
-            const nfts = await conexion.query(" select collection, descripcion, token_id, atributos from ( \
-                                                    select nc.collection, descripcion, nc.token_id, nc.reference as atributos, atributos as campo_atributos \
-                                                    from nft_collections3 nc \
-                                                    where substring(reference, 1, 5) = 'https' \
-                                                    union all \
-                                                    select nc.collection, descripcion, nc.token_id, c.base_uri||'/'||nc.reference as atributos, atributos as campo_atributos \
-                                                    from nft_collections3 nc \
-                                                    inner join collections c on c.nft_contract = nc.collection \
-                                                    where upper(split_part(nc.reference, '.', 2)) = upper('json') and substring(nc.reference, 1, 5) <> 'https' \
-                                                ) sub where campo_atributos is null limit 100 \
-            ");        
-            
-            if(nfts.rows.length == 0) {
-                 clearInterval(intervalo) 
-            }
-
-            //const intervalo = setTimeout(async function () {
-                for(let i = 0; i < nfts.rows.length; i++){
-                    axios.get(nfts.rows[i].atributos).then(async item => {
-                        let descripcion = nfts.rows[i].descripcion
-                        if(item.data.description) {
-                            if(descripcion == null) {
-                                descripcion = item.data.description
-                            }
-                        }
-                        console.log(descripcion)
-                        console.log(nfts.rows[i].token_id)
-                        if(item.data.attributes){
-                            await conexion.query("  update nft_collections3 \
-                                                    set \
-                                                        descripcion = $1, \
-                                                        atributos =$2 \
-                                                    where \
-                                                        collection = $3 \
-                                                        and token_id = $4 \
-                            ", [descripcion, JSON.stringify(item.data.attributes), nfts.rows[i].collection, nfts.rows[i].token_id])
-                        }  
-                    }).catch(error => {
-                        console.log('Error consulta axios: ', error)
-                    })
-                }
-                ciclos += 1
-            }, 30000)
-
-            //clearTimeout(intervalo)
-        
-        console.log("culminado actualizacion datos nft")
-    } catch (error) {
-        console.log('error 2 actualizacion de datos nft: ', error)
-        return error
-    }
-}
-
-
-async function CargarJsonAtributosNft() {
-    try {
-        console.log('inicio ')
-        const conexion = await dbConnect2() 
-        const intervalo = await setInterval(async function () { 
-        /*const response_nft = await conexion.query("select \
-                                                            nc.collection, nc.token_id, c.base_uri,  \
-                                                        from nft_collections3 nc \
-                                                        inner join collections c on c.nft_contract = nc.collection \
-                                                        where titulo is null"
-        );*/
-        
-        //let ciclos = 1
-        //while (ciclos) {                                           
-            const nfts = await conexion.query(" select collection, descripcion, token_id, atributos from ( \
-                                                    select nc.collection, descripcion, nc.token_id, nc.reference as atributos, atributos as campo_atributos \
-                                                    from nft_collections3 nc \
-                                                    where substring(reference, 1, 5) = 'https' \
-                                                    union all \
-                                                    select nc.collection, descripcion, nc.token_id, c.base_uri||'/'||nc.reference as atributos, atributos as campo_atributos \
-                                                    from nft_collections3 nc \
-                                                    inner join collections c on c.nft_contract = nc.collection \
-                                                    where upper(split_part(nc.reference, '.', 2)) = upper('json') and substring(nc.reference, 1, 5) <> 'https' \
-                                                ) sub where campo_atributos is null limit 100 \
-            ");        
-            console.log(nfts.rows.length)
-            if(nfts.rows.length == 0) {
-                 clearInterval(intervalo) 
-            }
-            //and collection = 'asac.near'
-            //const intervalo = setTimeout(async function () {
-                for(let i = 0; i < nfts.rows.length; i++){
-                    axios.get(nfts.rows[i].atributos).then(async item => {
-                        let descripcion = nfts.rows[i].descripcion
-                        if(item.data.description) {
-                            if(descripcion == null) {
-                                descripcion = item.data.description
-                            }
-                        }
-                        console.log(descripcion)
-                        console.log(nfts.rows[i].token_id)
-                        
-                        if(item.data.attributes && item.data.attributes.length > 0){
-                            if(item.data.attributes[0].trait_type && item.data.attributes[0].value){
-                                const result = await conexion.query("  update nft_collections3 \
-                                                        set \
-                                                            descripcion = $1, \
-                                                            atributos =$2 \
-                                                        where \
-                                                            collection = $3 \
-                                                            and token_id = $4 \
-                                ", [descripcion, JSON.stringify(item.data.attributes), nfts.rows[i].collection, nfts.rows[i].token_id])
-                                let atributos = item.data.attributes
-                                let datos = ''
-                                const tamano_row = atributos.length
-                                for(var ii = 0; ii < tamano_row; ii++) {
-                                datos += "('"+nfts.rows[i].collection.toString()+"', '"+nfts.rows[i].token_id.toString()+"', \
-                                    '"+atributos[ii].trait_type.toString()+"', '"+atributos[ii].value.toString()+"')";
-                                    
-                                    datos += ii != (tamano_row - 1) ? ", " : ""; 
-                                }
-
-                                console.log(result.rowCount)
-                                if(result.rowCount == 1) {
-                                    let insert_tabla_atributos = "INSERT INTO atributos ( \
-                                        collection, \
-                                        token_id, \
-                                        trait_type, \
-                                        value \
-                                    ) \
-                                    VALUES " + datos.toString();
-
-                                    await conexion.query(insert_tabla_atributos)
-                                    console.log('atributos insertados')
-                                }
-                            }
-
-                        }
-                    }).catch(error => {
-                        console.log('Error consulta axios: ', error)
-                    })
-                }
-                //ciclos += 1
-            }, 20000)
-            //clearInterval(intervalo) 
-        console.log("culminado actualizacion datos nft")
-    } catch (error) {
-        console.log('error 2 actualizacion de datos nft: ', error)
-        return error
-    }
-}
 async function UpdateNft(epoch_h) {
     console.log("-------------------------- UpdateNft ----------------------------------------------------------")
     try {
@@ -507,7 +499,7 @@ async function UpdateNft(epoch_h) {
                             token_new_owner_account_id text NULL, \
                             token_old_owner_account_id text NULL \
                         ) ";
- 
+
                     let query3 = "INSERT INTO tmp_nft_a ( \
                                     emitted_for_receipt_id, \
                                     emitted_at_block_timestamp, \
@@ -522,7 +514,6 @@ async function UpdateNft(epoch_h) {
                     
                     console.log("creando tabla temporal")
                     await conn_destino.query(query2)
-                    console.log('se creo la tabla temporal')
                     console.log("insertando tabla temporal")
                     await conn_destino.query(query3)
                     await conn_destino.query("commit")
@@ -634,8 +625,169 @@ async function UpdateNft(epoch_h) {
                 }
             }
         }
+        console.log('Ejecutando funcion update marketplace')
+        console.log("-----------------------------------------------------------------------------------------------------")
+        try {
+            let query = "   create temp TABLE tmp_nft_marketplace ( \
+                                precio text NULL, \
+                                fecha numeric(20) NULL, \
+                                marketplace text NULL, \
+                                collection text NULL, \
+                                token_id text NULL \
+                            ) "
+            ;
+            
+            let query2 = "  insert into tmp_nft_marketplace \
+                            select \
+                                cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'price' as precio, \
+                                receipt_included_in_block_timestamp as fecha, \
+                                receipt_receiver_account_id as marketplace, \
+                                receipt_predecessor_account_id as collection,\
+                                cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id' as token_id \
+                            from transaction tr1 \
+                            inner join ( \
+                                        select \
+                                            max(receipt_included_in_block_timestamp) as fecha, \
+                                            cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id' as token_id, \
+                                            receipt_receiver_account_id as marketplace, \
+                                            receipt_predecessor_account_id as collection \
+                                        from transaction \
+                                        where receipt_included_in_block_timestamp >= $1 \
+                                        and method_name = 'nft_on_approve' \
+                                        and cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'market_type' = 'sale' \
+                                        group by cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id', \
+                                        receipt_predecessor_account_id, receipt_receiver_account_id \
+                            ) tr2 on  tr2.fecha = tr1.receipt_included_in_block_timestamp \
+                                        and tr2.token_id = cast(convert_from(decode(tr1.args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id' \
+                                        and tr2.marketplace = tr1.receipt_receiver_account_id \
+                                        and tr2.collection = tr1.receipt_predecessor_account_id \
+                            where receipt_included_in_block_timestamp >= $2 \
+                            and method_name = 'nft_on_approve' \
+                            and cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'market_type' = 'sale' \
+                            and cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id' not in (select token_id from tmp_nft_marketplace \
+                                        where marketplace = tr1.receipt_receiver_account_id \
+                                        and collection = tr1.receipt_predecessor_account_id) "
+            ;
+            
+            let query3 = "  insert into collections_marketplace \
+                            select \
+                                sub.collection, \
+                                sub.marketplace \
+                            from ( \
+                            select \
+                                receipt_predecessor_account_id as collection, \
+                                receipt_receiver_account_id as marketplace \
+                            from transaction \
+                            where receipt_included_in_block_timestamp >= $1 \
+                            and method_name = 'nft_on_approve' \
+                            and cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'market_type' = 'sale' \
+                            group by \
+                                receipt_receiver_account_id, receipt_predecessor_account_id \
+                            ) sub \
+                            where sub.collection not in (select collection from collections_marketplace mc where mc.collection = sub.collection and mc.marketplace = sub.marketplace) \
+            ";
+
+            let query4 = "  delete from tmp_nft_marketplace  nct \
+                            where exists (select 1 from nft_collections_transaction where token_id = nct.token_id and collection = nct.collection and fecha > nct.fecha) \
+            ";
+
+            let query5 = "  update tmp_nft_marketplace \
+                            set \
+                                precio = cast(cast(convert_from(decode(tr1.args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'price', \
+                                fecha = tr1.receipt_included_in_block_timestamp \
+                            from transaction tr1 \
+                            inner join ( \
+                                        select \
+                                                max(receipt_included_in_block_timestamp) as fecha, \
+                                                cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id' as token_id, \
+                                                receipt_receiver_account_id as marketplace, \
+                                                receipt_predecessor_account_id as collection, \
+                                                method_name as metodo, \
+                                                cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'market_type' as market_type \
+                                        from transaction \
+                                        where receipt_included_in_block_timestamp >= $1 \
+                                        and method_name = 'nft_on_approve' \
+                                        and cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'market_type' = 'sale' \
+                                        group by \
+                                                cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id', receipt_predecessor_account_id, \
+                                                receipt_receiver_account_id, receipt_predecessor_account_id, method_name, \
+                                                cast(cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'market_type' \
+                            ) tr2 on  tr2.fecha = tr1.receipt_included_in_block_timestamp \
+                                        and tr2.token_id = cast(convert_from(decode(tr1.args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id' \
+                                        and tr2.marketplace = tr1.receipt_receiver_account_id \
+                                        and tr2.collection = tr1.receipt_predecessor_account_id \
+                                        and tr2.metodo = tr1.method_name \
+                                        and tr2.market_type = cast(cast(convert_from(decode(tr1.args->>'args_base64', 'base64'), 'UTF8') as json)->>'msg' as json)->>'market_type' \
+                            where tr2.token_id = tmp_nft_marketplace.token_id and tr2.marketplace = tmp_nft_marketplace.marketplace and tr2.fecha > tmp_nft_marketplace.fecha \
+            ";
+
+            let query6 = "  insert into nft_marketplace \
+                            select t.precio, t.fecha, t.marketplace, t.collection, t.token_id from tmp_nft_marketplace t \
+                            where token_id not in (select token_id from nft_marketplace m where m.collection = t.collection and m.marketplace = t.marketplace)  \
+            ";
+
+            let query7 = "  update nft_marketplace \
+                            set \
+                                fecha = t.fecha, \
+                                precio = t.precio \
+                        from tmp_nft_marketplace t \
+                        where t.token_id = nft_marketplace.token_id \
+                            and t.collection = nft_marketplace.collection \
+                            and t.marketplace = nft_marketplace.marketplace \
+                        and t.fecha > nft_marketplace.fecha \
+            ";
+
+            let query8 = "  delete from nft_marketplace  nct \
+			                where exists (select 1 from nft_collections_transaction where token_id = nct.token_id and collection = nct.collection and fecha > nct.fecha) ";
+
+            let query9 = "  delete from nft_marketplace nm \
+                            where exists (select 1 from transaction t where method_name = 'delete_market_data' \
+                            and t.receipt_receiver_account_id = nm.marketplace \
+                            and cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'nft_contract_id' = nm.collection \
+                            and cast(convert_from(decode(args->>'args_base64', 'base64'), 'UTF8') as json)->>'token_id' = nm.token_id \
+                            and t.receipt_included_in_block_timestamp > nm.fecha)" 
+
+            let query10 = "  drop table tmp_nft_marketplace ";
+
+            
+            const conn_destino = await dbConnect2()
+
+            await conn_destino.query(query)
+            await conn_destino.query("commit")
+            console.log("query ejecutado")
+            await conn_destino.query(query2, [epoch_h, epoch_h])
+            await conn_destino.query("commit")
+            console.log("query2 ejecutado")
+            await conn_destino.query(query3, [epoch_h])
+            await conn_destino.query("commit")
+            console.log("query3 ejecutado")
+            await conn_destino.query(query4)
+            await conn_destino.query("commit")
+            console.log("query4 ejecutado")
+            await conn_destino.query(query5, [epoch_h])
+            await conn_destino.query("commit")
+            console.log("query5 ejecutado")
+            await conn_destino.query(query7)
+            await conn_destino.query("commit")
+            console.log("query6 ejecutado")
+            await conn_destino.query(query6)
+            await conn_destino.query("commit")
+            console.log("query7 ejecutado")
+            await conn_destino.query(query8)
+            await conn_destino.query("commit")
+            console.log("query8 ejecutado")
+            await conn_destino.query(query9)
+            await conn_destino.query("commit")
+            console.log("query9 ejecutado")
+            await conn_destino.query(query10)
+            await conn_destino.query("commit")
+            console.log("query10 ejecutado")
+
+        } catch (error) {
+            console.log("error actualizando nft_marketplace: ", error)
+        }
         
-        console.log('Culminado update de nft')
+        console.log('Culminado listado de nft')
         console.log('Tiempo de ejecución listado nft ')
         
     } catch (error) {  
@@ -643,7 +795,7 @@ async function UpdateNft(epoch_h) {
     }
 }
 
-module.exports = { ListarNft, CargarRutaIfsImgNft, CargarJsonAtributosNft, UpdateNft }
+module.exports = { ListarNft, CargarRutaIfsImgNft, UpdateNft }
 
 
 

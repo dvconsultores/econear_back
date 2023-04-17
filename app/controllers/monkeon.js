@@ -66,9 +66,9 @@ const SalesOfTheDay = async (req, res) => {
                                                         nsb.pricenear as price, \
                                                         c.name, \
                                                         c.symbol, \
-                                                        c.icon, \
+                                                        case when c.flag_pinata = true then c.icon_pinata else c.icon end as icon, \
                                                         c.base_uri \
-                                                    from nft_sellbuy nsb \
+                                                    from nft_buy nsb \
                                                     inner join collections c on c.nft_contract = nsb.collection \
                                                     where nsb.fecha > $1 \
                                                     order by nsb.pricenear desc \
@@ -100,6 +100,34 @@ const SalesOfTheDay = async (req, res) => {
             console.log('error 2: ', error)
             res.error
         }*/
+        
+        res.json(resultados.rows)
+    } catch (error) {
+        console.log('error 1: ', error)
+        res.json({respuesta: 'error', error: error})
+    }
+}
+
+const RecentSales = async (req, res) => {
+    try {
+        const { top } = req.body
+    
+        const conexion = await dbConnect2()
+        
+        const resultados = await conexion.query("   select \
+                                                        to_timestamp(nsb.fecha::numeric/1000000000) as fecha, \
+                                                        nsb.collection as nft_contract_id, \
+                                                        nsb.tokenid as token_id, \
+                                                        nsb.pricenear as price, \
+                                                        c.name, \
+                                                        c.symbol, \
+                                                        case when c.flag_pinata = true then c.icon_pinata else c.icon end as icon, \
+                                                        c.base_uri \
+                                                    from nft_buy nsb \
+                                                    inner join collections c on c.nft_contract = nsb.collection \
+                                                    order by nsb.fecha desc \
+                                                    limit $1 \
+                                                ", [top])
         
         res.json(resultados.rows)
     } catch (error) {
@@ -163,7 +191,8 @@ const HighestVOLGainers = async (req, res) => {
                                                 limit $4 \
                                                     ", [fecha48h, fecha24h, fecha24h, top]);*/
         const resultados = await conexion.query(" select \
-                            fecha, nft_contract_id, volumen24h, volumen48h, porcentaje, c.name, c.symbol, c.icon, c.base_uri \
+                            fecha, nft_contract_id, volumen24h, volumen48h, porcentaje, c.name, c.symbol, \
+                            case when c.flag_pinata = true then c.icon_pinata else c.icon end as icon, c.base_uri \
                         from ( \
                                 SELECT \
                                     max(to_timestamp(x.fecha::numeric/1000000000)) as fecha, \
@@ -171,12 +200,12 @@ const HighestVOLGainers = async (req, res) => {
                                     sum(x.pricenear) as volumen24h, \
                                     max(sub.volumen48h) as volumen48h, \
                                     ((sum(x.pricenear) / max(sub.volumen48h)) * 100) - 100 as porcentaje \
-                                FROM nft_sellbuy x \
+                                FROM nft_buy x \
                                 inner join ( \
                                     SELECT \
                                         x.collection, \
                                         sum(x.pricenear) as volumen48h \
-                                    FROM nft_sellbuy x \
+                                    FROM nft_buy x \
                                     where \
                                         x.fecha > $1 \
                                         and x.fecha < $2 \
@@ -204,6 +233,59 @@ const HighestVOLGainers = async (req, res) => {
         res.error
     }
 }
+
+
+const TopFloorMovers = async (req, res) => {
+    try {
+        const { top } = req.body;
+        //moment(moment().format('DD/MM/YYYY, HH:00:00').toString(), 'DD/MM/YYYY, HH:00:00').subtract(24, 'h').valueOf()*1000000;
+        const fecha24h = moment(moment().format('DD/MM/YYYY, HH:00:00').toString(), 'DD/MM/YYYY, HH:00:00').subtract(24, 'h').valueOf()*1000000;
+        //moment(moment().format('yyyy-')).subtract(24, 'h').valueOf()*1000000;
+        //const fecha48h = moment().subtract(48, 'h').valueOf()*1000000;
+        console.log('24 horas atras ', fecha24h);
+        //console.log('48 horas atras ', fecha48h);
+        const conexion = await dbConnect2();
+
+        const resultados = await conexion.query("   select \
+                                                        collection, floor_price, floor_price24h, porcentaje, c.name, c.symbol,  \
+                                                        case when c.flag_pinata = true then c.icon_pinata else c.icon end as icon, c.base_uri  \
+                                                    from ( \
+                                                        select  \
+                                                            hc.collection, hc.floor_price, coalesce(floor24h.floor_price, 0) as floor_price24h, \
+                                                            case  \
+                                                            	when hc.floor_price::decimal > 0 and coalesce(floor24h.floor_price::decimal, 0) > 0 \
+                                                            	then ((hc.floor_price::decimal / floor24h.floor_price::decimal) * 100) - 100  \
+                                                            	else 0 \
+                                                            end as porcentaje  \
+                                                        from history_collections hc \
+                                                        inner join ( \
+                                                            select fecha from history_collections hc2 order by fecha desc limit 1 \
+                                                        ) fe on fe.fecha = hc.fecha \
+                                                        left join ( \
+                                                            select collection, floor_price   \
+                                                            from history_collections hc \
+                                                            inner join ( \
+                                                                select fecha from history_collections hc2  \
+                                                                where fecha = $1 \
+                                                                order by fecha desc limit 1 \
+                                                            ) fe on fe.fecha = hc.fecha \
+                                                        ) floor24h on floor24h.collection = hc.collection \
+                                                    ) sub \
+                                                    inner join collections c on c.nft_contract = sub.collection \
+                                                    order by  \
+                                                        porcentaje desc \
+                                                    limit  \
+                                                        $2  \
+    ", [fecha24h, top]);
+        
+        const datas = resultados.rows;
+        res.json(datas)
+    } catch (error) {
+        console.log('error 1: ', error)
+        res.error
+    }
+}
+
 
 const Volumen24h = async (req, res) => {
     try {
@@ -246,14 +328,14 @@ const Volumen24h = async (req, res) => {
                                                             select \
                                                                 (SELECT \
                                                                     sum(x.pricenear) as volumen \
-                                                                FROM nft_sellbuy x \
+                                                                FROM nft_buy x \
                                                                 where \
                                                                     x.fecha > $1  \
                                                                     and market in (select marketplace from marketplaces) \
                                                                 ) as volumen24h, \
                                                                 (SELECT \
                                                                         sum(x.pricenear) as volumen48h \
-                                                                    FROM nft_sellbuy x \
+                                                                    FROM nft_buy x \
                                                                     where \
                                                                         x.fecha > $2 \
                                                                         and x.fecha < $1 \
@@ -308,14 +390,14 @@ const Volumen7d = async (req, res) => {
                                                             select \
                                                                 (SELECT \
                                                                     sum(x.pricenear) as volumen \
-                                                                FROM nft_sellbuy x \
+                                                                FROM nft_buy x \
                                                                 where \
                                                                     x.fecha > $1  \
                                                                     and market in (select marketplace from marketplaces) \
                                                                 ) as volumen7d, \
                                                                 (SELECT \
                                                                         sum(x.pricenear) as volumen14d \
-                                                                    FROM nft_sellbuy x \
+                                                                    FROM nft_buy x \
                                                                     where \
                                                                         x.fecha > $2 \
                                                                         and x.fecha < $1 \
@@ -330,7 +412,7 @@ const Volumen7d = async (req, res) => {
 }
 
 
-const BuscarCollection = async (req, res) => {
+/*const BuscarCollection = async (req, res) => {
     try {
         const { search, top } = req.body;
         const conexion = await dbConnect2()
@@ -345,16 +427,22 @@ const BuscarCollection = async (req, res) => {
     } catch (error) {
         res.error
     }
-}
+}*/
 
 
 const Ranking = async (req, res) => {
     try {
         const { horas_vol, horas_floor, top, order, collection, owner } = req.body;
+        
+        let v_horas_vol = horas_vol
 
-        const fecha1 = moment().subtract(horas_vol, 'h').valueOf()*1000000;
-        const fecha2 = moment().subtract(horas_vol * 2, 'h').valueOf()*1000000;
-        const fecha3 = moment().subtract(horas_floor, 'h').valueOf()*1000000;
+        if(parseInt(horas_vol) == 0) {
+            v_horas_vol = 24
+        }
+
+        const fecha1 = moment().subtract(v_horas_vol, 'h').valueOf()*1000000;
+        const fecha2 = moment().subtract(v_horas_vol * 2, 'h').valueOf()*1000000;
+        const fecha3 = moment().subtract(24, 'h').valueOf()*1000000;
         console.log('horas 1 atras ', fecha1);
         console.log('horas 2 atras ', fecha2);
         console.log('horas 3 atras ', fecha3);
@@ -432,13 +520,15 @@ const Ranking = async (req, res) => {
                 where ('%' = $5 or c.nft_contract = $6) ";*/
         
         query = "   select \
-                        c.nft_contract, c.name, c.symbol, c.icon, c.base_uri , c.reference, c.fecha_creacion, c.total_supply as supply, \
-                        COALESCE(vol.volumen1,0) as volumen1, \
+                        c.nft_contract, c.name, c.symbol, case when c.flag_pinata = true then c.icon_pinata else c.icon end as icon, \
+                        c.base_uri , c.reference, c.fecha_creacion, c.total_supply as supply, \
+                        COALESCE(case when 0 = $6 then (select sum(pricenear) from nft_buy nbuy where nbuy.collection = c.nft_contract)  \
+                        else vol.volumen1 end, 0) as volumen1,  \
                         COALESCE(subfloor.floor_price, 0) as floor_price, \
                         COALESCE(vol.porcentaje, 0) porcentaje, \
                         COALESCE(voto.positivo,0) as voto_positivo, \
                         COALESCE(voto.negativo,0) as voto_negativo, \
-                        coalesce((select true from nft_collections nc where token_new_owner_account_id = $6 and collection = c.nft_contract group by true), false) as permission_voto_nega, \
+                        coalesce((select true from nft_collections nc where token_new_owner_account_id = $5 and collection = c.nft_contract group by true), false) as permission_voto_nega, \
                         (select count(owner_id) \
                         from (select distinct token_new_owner_account_id as owner_id  \
                         from nft_collections nc where collection = c.nft_contract) sub4) as owner_for_tokens \
@@ -457,12 +547,12 @@ const Ranking = async (req, res) => {
                                             x.collection as nft_contract, \
                                             sum(x.pricenear) as volumen1, \
                                             max(sub.volumen2) as volumen2 \
-                                        FROM nft_sellbuy x \
+                                        FROM nft_buy x \
                                         inner join ( \
                                                         SELECT \
                                                             x.collection as nft_contract, \
                                                             sum(x.pricenear) as volumen2 \
-                                                        FROM nft_sellbuy x \
+                                                        FROM nft_buy x \
                                                         where \
                                                             x.fecha > $1 \
                                                             and x.fecha < $2  \
@@ -478,15 +568,10 @@ const Ranking = async (req, res) => {
                                 ) a \
                     ) vol on c.nft_contract = vol.nft_contract \
                     left join ( \
-                                SELECT \
-                                    x.collection as nft_contract, \
-                                    min(x.pricenear) as floor_price \
-                                FROM nft_sellbuy x \
-                                where \
-                                    x.fecha > $3 \
-                                    and market in (select marketplace from marketplaces) \
-                                group by \
-                                    x.collection \
+                        select \
+                            collection as nft_contract, min(precio_near) as floor_price  \
+                        from nft_marketplace nm where precio_near <> 0 \
+                        group by collection \
                     ) subfloor on c.nft_contract = subfloor.nft_contract \
                     left join ( \
                         select \
@@ -496,14 +581,16 @@ const Ranking = async (req, res) => {
                         from votos v \
                         group by collection \
                     ) voto on c.nft_contract = voto.collection \
-                    where ('%' = $4 or c.nft_contract = $4) "
+                    where ('%' = $3 or c.nft_contract = $3) "
 
         switch (order) {
             case "best":
-                query += " order by COALESCE(vol.volumen1,0) desc ";       
+                query += " order by COALESCE(case when 0 = $6 then (select sum(pricenear) from nft_buy nbuy where nbuy.collection = c.nft_contract)  \
+                else vol.volumen1 end, 0) desc ";       
                 break;
             case "volumen":
-                query += " order by COALESCE(vol.volumen1,0) desc ";       
+                query += " order by COALESCE(case when 0 = $6 then (select sum(pricenear) from nft_buy nbuy where nbuy.collection = c.nft_contract)  \
+                else vol.volumen1 end, 0) desc ";       
                 break;
             case "floor":
                 query += " order by COALESCE(subfloor.floor_price,0) asc ";       
@@ -513,10 +600,10 @@ const Ranking = async (req, res) => {
         }
         
         //query += " limit $7 ";
-        query += " limit $5 ";
+        query += " limit $4 ";
 
         //const resultados = await conexion.query(query, [fecha2, fecha1, fecha1, fecha3, collection, collection, top, owner]);
-        const resultados = await conexion.query(query, [fecha2, fecha1, fecha3, collection, top, owner]);
+        const resultados = await conexion.query(query, [fecha2, fecha1, collection, top, owner, horas_vol]);
 
         res.json(resultados.rows)
     } catch (error) {
@@ -584,14 +671,16 @@ const NewProjectsListed = async (req, res) => {
                             symbol, icon, base_uri, reference, price, fecha_creacion, voto, fecha_lanzamiento \
                         from ( \
                             select c.nft_contract, c.total_supply, p.fecha as fecha_listado, c.name, \
-                                c.symbol, c.icon, c.base_uri, c.reference, coalesce(cmp.precio, 0) as price, \
-                                c.fecha_creacion, COALESCE(sub.positivo,0) as voto, fecha_lanzamiento \
+                                c.symbol, c.base_uri, c.reference, coalesce(cmp.precio, 0) as price, \
+                                c.fecha_creacion, COALESCE(sub.positivo,0) as voto, fecha_lanzamiento, \
+                                case when c.flag_pinata = true then c.icon_pinata else c.icon end as icon \
                             from projects p \
                             inner join collections c on c.nft_contract = p.id_contract_project \
-                            left join (select min(cast(precio as numeric)/1000000000000000000000000) as precio, \
-                                        collection \
-                                        from nft_marketplace \
-                                        group by collection \
+                            left join ( \
+                                select \
+                                    collection, min(precio_near) as precio  \
+                                from nft_marketplace nm where precio_near <> 0 \
+                                group by collection\
                             ) cmp on cmp.collection = p.id_contract_project \
                             left join (select collection, \
                                         sum(case when voto = 'true' then 1 else 0 end) as positivo \
@@ -647,21 +736,21 @@ const ActiveWalleHeader = async (req, res) => {
         let query = "   select \
                             (select coalesce(json_agg(jsonlist), '[]') \
                             from (select buyer as wallet, sum(pricenear) as volumen \
-                            from nft_sellbuy \
+                            from nft_buy \
                             where fecha >= $1 \
                             group by buyer \
                             order by sum(pricenear) desc \
                             limit 1) jsonlist) as largest_buyer, \
                             (select coalesce(json_agg(jsonlist), '[]') \
                             from (select seller as wallet, sum(pricenear) as volumen \
-                            from nft_sellbuy \
+                            from nft_buy \
                             where fecha >= $1 \
                             group by seller \
                             order by sum(pricenear) desc \
                             limit 1) jsonlist) as largest_seller, \
                             (select coalesce(json_agg(jsonlist), '[]') \
                             from (select seller as wallet, pricenear as price \
-                            from nft_sellbuy \
+                            from nft_buy \
                             where fecha >= $1 \
                             order by pricenear desc \
                             limit 1) jsonlist) as highest_sale, \
@@ -683,7 +772,7 @@ const ActiveWalleHeader = async (req, res) => {
                                             sum(t.pricenear) as total_gastado, \
                                             count(t.pricenear) as total_comprado, \
                                             t.buyer as wallet \
-                                        from nft_sellbuy t  \
+                                        from nft_buy t  \
                                         group by \
                                             t.buyer \
                                     ) sub  \
@@ -792,7 +881,7 @@ const ActiveWallets = async (req, res) => {
                                         from (select  \
                                             nc.collection, c.name as collection_name, nc.token_id as token_id, nc.media as media, nc.titulo as titulo, \
                                             t.pricenear as precio \
-                                        from nft_sellbuy t \
+                                        from nft_buy t \
                                         inner join nft_collections nc on nc.collection = t.collection and nc.token_id = t.tokenid \
                                         inner join collections c on c.nft_contract = nc.collection \
                                         where t.buyer = fin.wallet \
@@ -807,7 +896,7 @@ const ActiveWallets = async (req, res) => {
                                         from (select  \
                                             nc.collection, c.name as collection_name, nc.token_id as token_id, nc.media as media, nc.titulo as titulo, \
                                             t.pricenear as precio \
-                                        from nft_sellbuy t \
+                                        from nft_buy t \
                                         inner join nft_collections nc on nc.collection = t.collection and nc.token_id = t.tokenid \
                                         inner join collections c on c.nft_contract = nc.collection \
                                         where t.seller = fin.wallet \
@@ -824,7 +913,7 @@ const ActiveWallets = async (req, res) => {
                                 from (select  \
                                     nc.collection, c.name as collection_name, nc.token_id as token_id, nc.media as media, nc.titulo as titulo, \
                                     t.pricenear as precio \
-                                from nft_sellbuy t \
+                                from nft_buy t \
                                 inner join nft_collections nc on nc.collection = t.collection and nc.token_id = t.tokenid \
                                 inner join collections c on c.nft_contract = nc.collection \
                                 where t.fecha >= $3 \
@@ -838,7 +927,7 @@ const ActiveWallets = async (req, res) => {
                                 from (select  \
                                     nc.collection, c.name as collection_name, nc.token_id as token_id, nc.media as media, nc.titulo as titulo, \
                                     t.pricenear as precio \
-                                from nft_sellbuy t \
+                                from nft_buy t \
                                 inner join nft_collections nc on nc.collection = t.collection and nc.token_id = t.tokenid \
                                 inner join collections c on c.nft_contract = nc.collection \
                                 where t.fecha >= $3 \
@@ -851,7 +940,7 @@ const ActiveWallets = async (req, res) => {
                                     sum(t.pricenear) as total_gastado, \
                                     count(t.pricenear) as total_comprado, \
                                     t.buyer as wallet \
-                                from nft_sellbuy t \
+                                from nft_buy t \
                                 where t.fecha >= $3 \
                                 group by \
                                     t.buyer \
@@ -861,7 +950,7 @@ const ActiveWallets = async (req, res) => {
                                     sum(t.pricenear) as total_ganado, \
                                     count(t.pricenear) as total_vendido, \
                                     t.seller as wallet \
-                                from nft_sellbuy t \
+                                from nft_buy t \
                                 where t.fecha >= $3 \
                                 group by \
                                     t.seller \
@@ -878,7 +967,7 @@ const ActiveWallets = async (req, res) => {
                                     sum(t.pricenear) as total_gastado, \
                                     count(t.pricenear) as total_comprado, \
                                     t.buyer as wallet \
-                                from nft_sellbuy t \
+                                from nft_buy t \
                                 where t.fecha >= $1 \
                                 group by \
                                     t.buyer \
@@ -1090,7 +1179,7 @@ const StastMarket = async (req, res) => {
         const nftmarket_volumen = await colsutaGraph(queryGql_volumnen)
 
         /*--------------------- data marketplace ------------------------------*/
-        const resp_dmp = await conexion.query(" select marketplace as market, name, icon, web from marketplaces ")
+        const resp_dmp = await conexion.query(" select marketplace as market, name, icon, web, description from marketplaces ")
         const dmp = resp_dmp.rows
         /*---------------------------------------------------------------------*/
         
@@ -1105,6 +1194,7 @@ const StastMarket = async (req, res) => {
                 market_name: mp.name ? mp.name : '',
                 market_icon: mp.icon ? mp.icon : '',
                 market_web: mp.web ? mp.web : '',
+                market_description: mp.description ? mp.description : '',
                 volumen_market: ms.volumen,
                 floor_sales: ms.floor_sales,
                 floor_sales_data: ms.floor_sales_data,
@@ -1123,5 +1213,65 @@ const StastMarket = async (req, res) => {
     } 
 }
 
-module.exports = { SalesOfTheDay, HighestVOLGainers, Volumen24h, Volumen7d, BuscarCollection, Ranking, UpcomingListed,
-                    NewProjectsListed, ActiveWalleHeader, ActiveWallets, ActiveWalletsMarket, StastMarket }
+const CompareProjects = async (req, res) => {
+    try {
+        const { collection } = req.body;
+
+        const conexion2 = await dbConnect2();
+        
+        const fecha = moment().subtract(24, 'h').valueOf()*1000000;
+
+        let query = "   select \
+                            nm.collection, \
+                            case when c.flag_pinata = true then c.icon_pinata else c.icon end as icon, \
+                            min(precio_near) as floor_price, \
+                            min(precio_near) * c.total_supply as market_cap, \
+                            coalesce(nbuy.volumen24h, 0) as volumen24h, \
+                            ( \
+                                select count(owner_id) as owner_id from ( \
+                                    select token_new_owner_account_id as owner_id from nft_collections nc \
+                                    where collection = nm.collection group by token_new_owner_account_id) sub \
+                            ) as holders, \
+                            count(nm.precio_near) as total_listed, \
+                            COALESCE(max(voto.positivo),0) as voto_positivo, \
+                            COALESCE(max(voto.negativo),0) as voto_negativo, \
+                            max(c.total_supply) as total_supply, \
+                            coalesce(nbuy.low_sales24h, 0) as low_sales24h, \
+                            coalesce(nbuy.hig_sales24h, 0) as hig_sales24h \
+                        from nft_marketplace nm \
+                        inner join collections c on c.nft_contract = nm.collection \
+                        left join ( \
+                            select \
+                                nb.collection, \
+                                sum(nb.pricenear) as volumen24h, \
+                                min(nb.pricenear) as low_sales24h, \
+                                max(nb.pricenear) as hig_sales24h \
+                            from nft_buy nb where fecha >= $2 \
+                            group by \
+                                nb.collection \
+                        ) nbuy on nbuy.collection = nm.collection \
+                        left join ( \
+                            select \
+                                v.collection, \
+                                sum(case when v.voto = 'true' then 1 else 0 end) as positivo, \
+                                sum(case when v.voto = 'false' then 1 else 0 end) as negativo \
+                            from votos v  \
+                            group by v.collection \
+                        ) voto on voto.collection = nm.collection \
+                        where nm.collection = $1 and nm.precio_near > 0 \
+                        group by \
+                            nm.collection, c.flag_pinata, c.icon_pinata, c.icon, c.total_supply, nbuy.volumen24h, low_sales24h, hig_sales24h \
+        ";
+
+        const result = await conexion2.query(query, [collection, fecha])
+        console.log(result.rows)
+        res.json(result.rows)
+
+    } catch (error) {
+        console.log('error 1: ', error)
+        res.json({respuesta: false, error: error})
+    }
+}
+
+module.exports = { SalesOfTheDay, RecentSales, HighestVOLGainers, TopFloorMovers, Volumen24h, Volumen7d, Ranking, UpcomingListed,
+                    NewProjectsListed, ActiveWalleHeader, ActiveWallets, ActiveWalletsMarket, StastMarket, CompareProjects }

@@ -10,8 +10,8 @@ const path = require('path');
 const { ParaSwap } = require('paraswap');
 const { response } = require('express');
 */
-const { Datasellbuy, updateTransactions, updateProjects, UpdateVotes, UpdateVotesUpcoming, update_masivo_collections } = require('./funciones')
-const { ListarNft, CargarRutaIfsImgNft, UpdateNft } = require('./funcionesNft')
+const { Databuy, DataSell, UpdateDataMarket, DataMarket, HistCollection, updateProjects, UpdateVotes, UpdateVotesUpcoming, update_masivo_collections } = require('./funciones')
+const { ListarNft, CargarRutaIfsImgNft, UpdateNft, CargarJsonAtributosNft } = require('./funcionesNft')
 
 
 const { utils, Contract, keyStores, KeyPair, Near, Account } = nearAPI
@@ -38,11 +38,13 @@ async function listar() {
 async function listar2() {
     const epoch_h = moment().subtract(3, 'd').valueOf()*1000000;
     await updateTransactions(epoch_h);
-    await updateProjects(epoch_h);
+    /*await updateProjects(epoch_h);
     await UpdateNft(epoch_h)
     await UpdateVotes(epoch_h)
-    await UpdateVotesUpcoming(epoch_h)
+    await UpdateVotesUpcoming(epoch_h)*/
 }
+
+//DataMarket()
 
 //listar()
 //listar2()
@@ -50,14 +52,25 @@ async function listar2() {
 //updateTransactions(epoch_h)
 //UpdateNft(epoch_h)
 
+//HistCollection()
+//ListarNft()  
+//UpdateVotesUpcoming()
+//const epoch_h = moment().subtract(24, 'h').valueOf()*1000000;
+//UpdateDataMarket(epoch_h)
+//CargarJsonAtributosNft()
+//UpdateDataMarket(epoch_h)
+//CargarJsonAtributosNft()
+//HistCollection()
+
 
 const servico_updateTransaction = setInterval(async function () { 
     console.log('--------------------------------------------------------------------')
     console.log('ejecutando servico_updateTransaction')
     try {
         const epoch_h = moment().subtract(30, 'm').valueOf()*1000000;
-        //await updateTransactions(epoch_h);
-        await Datasellbuy()
+        await Databuy()
+        await DataSell()
+        await UpdateDataMarket(epoch_h)
         await updateProjects(epoch_h);
         await UpdateNft(epoch_h)
         await UpdateVotes(epoch_h)
@@ -68,6 +81,19 @@ const servico_updateTransaction = setInterval(async function () {
     console.log('culminado servico_updateTransaction')
     console.log('--------------------------------------------------------------------')
 }, 60000 * 1);
+
+
+const servico_carga_historico_collection = setInterval(async function () { 
+    console.log('--------------------------------------------------------------------')
+    console.log('ejecutando servico_carga_historico_collection')
+    try {
+        await HistCollection()
+    } catch (error) {
+        console.log(error)
+    }
+    console.log('culminado servico_carga_historico_collection')
+    console.log('--------------------------------------------------------------------')
+}, 60000 * 10);
 
 
 const servico_updateMasivos = setInterval(async function () { 
@@ -100,7 +126,7 @@ const listaServicios = async (req, res) => {
 const RefreshForm = async (req, res) => {
     const epoch_h = moment().subtract(10, 'm').valueOf()*1000000;
     setTimeout(async() => {
-        await updateTransactions(epoch_h);
+        //await updateTransactions(epoch_h);
         const resp = await updateProjects(epoch_h)
         res.json(resp)
     }, 1000 * 30)
@@ -109,7 +135,7 @@ const RefreshForm = async (req, res) => {
 const RefreshVotes = async (req, res) => {
     setTimeout(async() => {
         const fecha = moment().subtract(10, 'm').valueOf()*1000000;
-        await updateTransactions(fecha);
+        //await updateTransactions(fecha);
         const resp = await UpdateVotes(fecha)
         res.json(resp)
     }, 1000 * 30)
@@ -118,7 +144,7 @@ const RefreshVotes = async (req, res) => {
 const RefreshVotesUpcoming = async (req, res) => {
     setTimeout(async() => {
         const fecha = moment().subtract(10, 'm').valueOf()*1000000;
-        await updateTransactions(fecha);
+        //await updateTransactions(fecha);
         const resp = await UpdateVotesUpcoming(fecha)
         res.json(resp)
     }, 1000 * 30)
@@ -127,12 +153,12 @@ const RefreshVotesUpcoming = async (req, res) => {
 const RefrescarNft = async (req, res) => {
     setTimeout(async() => {
         const epoch_h = moment().subtract(20, 'm').valueOf()*1000000;
-        await updateTransactions(epoch_h)
+        //await updateTransactions(epoch_h)
         await UpdateNft(epoch_h)
         await CargarRutaIfsImgNft()
         res.json({respuesta: 'Listo'})
     }, 1000 * 30)
-}
+} 
 
 module.exports = { listaServicios, RefreshForm, RefreshVotes, RefreshVotesUpcoming, RefrescarNft }
 

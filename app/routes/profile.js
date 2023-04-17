@@ -1,6 +1,6 @@
 const express = require('express')
 const router = express.Router()
-const { YourBalance, YourProjectsList, ToSubscribe, SavePerfil, YourPerfil } = require('../controllers/profile')
+const { YourBalance, YourProjectsList, ToSubscribe, SavePerfil, YourPerfil, ToSettings, YourSettings, IsHolderMonkeonnear, RarezasToken } = require('../controllers/profile')
 
 const upload = require('../controllers/storage');
 const pinataSDK = require('@pinata/sdk');
@@ -11,6 +11,9 @@ router.post('/yourprojectslist', YourProjectsList)
 router.post('/tosubscribe', ToSubscribe)
 router.post('/SavePerfil', upload.single('uploaded_file'), SavePerfil)
 router.post('/yourperfil', YourPerfil)
-
+router.post('/tosettings', ToSettings)
+router.post('/yoursettings', YourSettings)
+router.post('/isholdermonkeonnear', IsHolderMonkeonnear)
+router.post('/rarezastoken', RarezasToken)
 
 module.exports = router
