@@ -9,6 +9,11 @@ const dbConnect = async () => {
         database: process.env.DATABASE,
         password: process.env.PASSWORD_DB,
         port: process.env.PORT,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 2000,
+        allowExitOnIdle: true,
+        min: 10,
+        max: 20,
       }
       //const client = new Client(connectionData)
       //return client

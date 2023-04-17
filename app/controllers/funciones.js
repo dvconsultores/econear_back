@@ -116,6 +116,7 @@ async function Databuy() {
 
             await conn.query(insert_nft_buy);
             await conn.query('COMMIT');
+            
             console.log("Registros insertados en tabla final nft_buy")
 
             let delete_temp_nft_buy = "  drop table tmp_nft_buy "
@@ -125,6 +126,7 @@ async function Databuy() {
             
             //console.log(array)
             console.log('fin -------------------------------------------------------------------------------------------------------')
+            
             
         }
         return 'exito'
