@@ -84,7 +84,7 @@ const ProjectsDetailsHeader = async (req, res) => {
         const data = resultados.rows;
         
         res.json(data)
-        
+        conexion.end();
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: "error", error: error})
@@ -171,7 +171,7 @@ const StastMarketCapVolumenCollection = async (req, res) => {
         data = resultados.rows
         
         res.json(data)
-        
+        conexion.end();
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: "error", error: error})
@@ -235,7 +235,7 @@ const StastPriceCollection = async (req, res) => {
         data = resultados.rows
         
         res.json(data)
-        
+        conexion.end();
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: "error", error: error})
@@ -311,7 +311,7 @@ const StastSalesLiquidCollection = async (req, res) => {
         const resultados = await conexion.query(queryFinal, [collection, fecha, fecha_hasta]);
         data = resultados.rows
         console.log(resultados.rows)
-        
+        conexion.end();
         res.json(data)
         
     } catch (error) {
@@ -421,7 +421,7 @@ const StastBuyersTradersCollection = async (req, res) => {
         data = resultados.rows
         
         res.json(data)
-        
+        conexion.end();
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: "error", error: error})
@@ -458,7 +458,7 @@ const StastTopSalesCollection = async (req, res) => {
         
         
         res.json(resultados.rows)
-        
+        conexion.end();
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: "error", error: error})
@@ -486,7 +486,7 @@ const StastSearchNftCollection = async (req, res) => {
         
         
         res.json(resultados.rows)
-        
+        conexion.end();
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: "error", error: error})
@@ -557,7 +557,7 @@ const StastNftCollection = async (req, res) => {
         const resul = await conexion.query(queryCount, [collection]);
         
         res.json({total_nfts: resul.rows[0].total_nfts, data: resultados.rows})
-        
+        conexion.end();
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: "error", error: error})
@@ -590,6 +590,7 @@ const StastTopBuyersCollection = async (req, res) => {
         const resultados = await conexion.query(query, [collection, fecha, limit, index]);
         
         res.json(resultados.rows)
+        conexion.end();
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: "error", error: error})
@@ -621,6 +622,7 @@ const StastTopSellersCollection = async (req, res) => {
         const resultados = await conexion.query(query, [collection, fecha, limit, index]);
         
         res.json(resultados.rows)
+        conexion.end();
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: "error", error: error})
@@ -669,7 +671,7 @@ const StastActivityCollection = async (req, res) => {
         
         
         res.json(resultados.rows)
-        
+        conexion.end();
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: "error", error: error})
@@ -734,7 +736,7 @@ const StastRarityDistributionCollection = async (req, res) => {
         
         
         res.json(resultados.rows)
-        
+        conexion.end();
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: "error", error: error})

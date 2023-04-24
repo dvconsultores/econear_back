@@ -36,6 +36,8 @@ async function ListarNft() {
         
         console.log('aqui paso')
         const row = resultados.rows
+        const conn_destino = await dbConnect2()
+        const conn_origen = await dbConnect()
         for(var x = 0; x < row.length; x++ ) {
             console.log("este es el contrato: ", row[x].nft_contract)
             let offset = 0;
@@ -44,8 +46,7 @@ async function ListarNft() {
                 if(detener) { break }
                 for(var j = 0; j < 20; j++) {
                     try {
-                        const conn_destino = await dbConnect2()
-                        const conn_origen = await dbConnect()
+                        
                         
                         console.log('Tiempo inicio de ejecución  NftTemporal ', ' - offset = ', offset)
                         let query = " select emitted_for_receipt_id, cast(emitted_at_block_timestamp as char(20)) as emitted_at_block_timestamp, ";
@@ -214,6 +215,7 @@ async function ListarNft() {
                         console.log('Tiempo de ejecución NftTemporal ', ' - offset = ', offset)
                             
                         break
+                        pool.end().then(() => console.log('pool has ended'))
                     } catch (error) {
                         console.log('error consulta origen NftTemporal')
                         console.log('error NftTemporal: ', error)
@@ -225,7 +227,9 @@ async function ListarNft() {
         }
         console.log('Culminado listado de nft')
         console.log('Tiempo de ejecución listado nft ')
-        
+        conn_inicial.end()
+        conn_destino.end()
+        conn_origen.end()
     } catch (error) {  
         console.log("error general listar nft: ", error)
     }
@@ -284,6 +288,8 @@ async function CargarRutaIfsImgNft() {
             });
         }
         console.log("culminado actualizacion datos nft")
+        conexion.end()
+        conexion2.end()
     } catch (error) {
         console.log('error 2 actualizacion de datos nft: ', error)
         return error
@@ -351,6 +357,7 @@ async function CargarJsonAtributosNft2() {
             //clearTimeout(intervalo)
         
         console.log("culminado actualizacion datos nft")
+        conexion.end()
     } catch (error) {
         console.log('error 2 actualizacion de datos nft: ', error)
         return error
@@ -444,6 +451,7 @@ async function CargarJsonAtributosNft() {
             }, 20000)
             //clearInterval(intervalo) 
         console.log("culminado actualizacion datos nft")
+        conexion.end()
     } catch (error) {
         console.log('error 2 actualizacion de datos nft: ', error)
         return error
@@ -453,15 +461,15 @@ async function UpdateNft(epoch_h) {
     console.log("-------------------------- UpdateNft ----------------------------------------------------------")
     try {
         console.log('aqui paso')
-        
+        const conn_destino = await dbConnect2()
+        const conn_origen = await dbConnect()
         let offset = 0;
         let detener = false;
         for(var i = 0; i < 100; i++) {
             if(detener) { break }
             for(var j = 0; j < 20; j++) {
                 try {
-                    const conn_destino = await dbConnect2()
-                    const conn_origen = await dbConnect()
+                    
                     
                     console.log('Tiempo inicio de ejecución  NftTemporal ', ' - offset = ', offset)
                     let query = " select emitted_for_receipt_id, cast(emitted_at_block_timestamp as char(20)) as emitted_at_block_timestamp, ";
@@ -637,7 +645,8 @@ async function UpdateNft(epoch_h) {
         
         console.log('Culminado update de nft')
         console.log('Tiempo de ejecución listado nft ')
-        
+        conn_origen.end()
+        conn_destino.end()
     } catch (error) {  
         console.log("error general listar nft: ", error)
     }

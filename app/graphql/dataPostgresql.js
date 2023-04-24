@@ -22,6 +22,7 @@ const NftCollection = async (collection, tokens) => {
         
         //console.log(resultados.rows)
         return resultados.rows
+        conexion.end()
     } catch (error) {
         console.log(error)
         return []
@@ -45,7 +46,7 @@ const DeleteMarket = async (collection, tokens) => {
                         group by token_id "
         
         const resultados = await conexion.query(query, [collection])
-        
+        conexion.end()
         //console.log(resultados.rows)
         return resultados.rows
     } catch (error) {

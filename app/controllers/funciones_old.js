@@ -124,7 +124,7 @@ async function Databuy() {
             await conn.query(delete_temp_nft_buy);
             await conn.query('COMMIT');
             console.log("Tabla temporal eliminada")
-            
+            conn.end()
             //console.log(array)
             console.log('fin -------------------------------------------------------------------------------------------------------')
             
@@ -226,7 +226,7 @@ async function DataSell() {
             await conn.query(delete_temp_nft_sell);
             await conn.query('COMMIT');
             console.log("Tabla temporal eliminada")
-            
+            conn.end()
             //console.log(array)
             console.log('fin -------------------------------------------------------------------------------------------------------')
             

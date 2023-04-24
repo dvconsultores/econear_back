@@ -126,10 +126,13 @@ async function Databuy() {
             
             //console.log(array)
             console.log('fin -------------------------------------------------------------------------------------------------------')
+
             
             
         }
+        conn.end()
         return 'exito'
+        
     } catch (error) {
         console.log(error)
         return error
@@ -231,6 +234,7 @@ async function DataSell() {
             console.log('fin -------------------------------------------------------------------------------------------------------')
             
         }
+        conn.end()
         return 'exito'
     } catch (error) {
         console.log(error)
@@ -383,7 +387,7 @@ async function UpdateDataMarket(fecha_epoch) {
         
         console.log('votos actualizacos')
         console.log('fin -------------------------------------------------------------------------------------------------------')
-            
+        conn.end()
         return {respuesta: true}
     } catch (error) {
         console.log('error: ', error)
@@ -655,7 +659,7 @@ async function DataMarket() {
         await conn.query('COMMIT');
         console.log("Registros eliminados en tabla final nft_market")
         console.log('fin update final ------------------------------------------------------------------------------------------')
-
+        conn.end()
         return 'exito'
     } catch (error) {
         console.log(error)
@@ -762,7 +766,7 @@ async function HistCollection(){
         //1667325600000000000 
         //1667329200000000000
         //1667329200000000000
-
+        conn.end()
     } catch (error) {
         console.log(error)
         return error
@@ -917,7 +921,7 @@ async function HistFloor2(epoch_h) {
         const result = await conn.query("select * from nft_sell ns inner join tmp_e te on te.tokenid = ns.tokenid and te.fecha = ns.fecha order by ns.pricenear asc limit 5");
         console.log(result.rows)
         
-
+        conn.end()
     } catch (error) {
         console.log('error 1: ', error)
         return error
@@ -1052,7 +1056,7 @@ async function updateProjects(fecha_epoch) {
         console.log('fin update projects')
         console.log('projects actualizacos')
         console.log('fin -------------------------------------------------------------------------------------------------------')
-
+        conn.end()
         return {respuesta: true}
         
     } catch (error) {
@@ -1131,7 +1135,9 @@ async function listarCollections() {
                 }
                 
             }
-            
+            conn.end()
+            conexion2.end()
+            conexion.end()
         } catch (error) {
             console.log('error 2: ', error)
         }
@@ -1162,7 +1168,7 @@ async function listarCollectionsMarketplace(collection) {
                                         where mc.collection = sub.collection and mc.marketplace = sub.marketplace) \
         ", [collection]);
         await conexion2.query("commit");
-        
+        conexion2.end()
     } catch (error) {
         console.log('error 1: ', error)
     }
@@ -1278,7 +1284,7 @@ async function UpdateVotes(fecha_epoch) {
         
         console.log('votos actualizacos')
         console.log('fin -------------------------------------------------------------------------------------------------------')
-            
+        conn.end()
         return {respuesta: true}
     } catch (error) {
         console.log('error: ', error)
@@ -1397,7 +1403,7 @@ async function UpdateVotesUpcoming(fecha_epoch) {
         
         console.log('votos_upcoming actualizacos')
         console.log('fin -------------------------------------------------------------------------------------------------------')
-            
+        conn.end()
         return {respuesta: true}
     } catch (error) {
         console.log('error: ', error)
@@ -1494,7 +1500,7 @@ async function update_masivo_collections() {
             console.log('error 2: ', error)
             return error
         }
-        
+        conexion2.end()
         return arreglo
     } catch (error) {
         console.log('error 1: ', error)
@@ -1563,7 +1569,7 @@ const StastMarket = async (req, res) => {
                 collection_more_volumen: mv.market ? mv.market : []
             })
         }
-        
+        conexion.end()
         //console.log(array)
         res.json(array)
     } catch (error) {

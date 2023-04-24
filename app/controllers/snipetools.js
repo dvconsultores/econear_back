@@ -87,7 +87,7 @@ const RecentlyListed = async (req, res) => {
         const respuesta = await conexion2.query(query, [limit, index])
 
         res.json(respuesta.rows)
-        
+        conexion2.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: false, error: error})
@@ -150,7 +150,7 @@ const RecentlyAdded = async (req, res) => {
 
         const respuesta = await conexion2.query(query, [top, owner])
         res.json(respuesta.rows)
-        
+        conexion2.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: false, error: error})
@@ -180,7 +180,7 @@ const ThemostVoted = async (req, res) => {
         const respuesta = await conexion2.query(query, [top, owner])
 
         res.json(respuesta.rows)
-        
+        conexion2.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: false, error: error})

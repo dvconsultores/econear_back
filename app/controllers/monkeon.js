@@ -102,6 +102,7 @@ const SalesOfTheDay = async (req, res) => {
         }*/
         
         res.json(resultados.rows)
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: 'error', error: error})
@@ -130,6 +131,7 @@ const RecentSales = async (req, res) => {
                                                 ", [top])
         
         res.json(resultados.rows)
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: 'error', error: error})
@@ -228,6 +230,7 @@ const HighestVOLGainers = async (req, res) => {
         
         const datas = resultados.rows;
         res.json(datas)
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.error
@@ -280,6 +283,7 @@ const TopFloorMovers = async (req, res) => {
         
         const datas = resultados.rows;
         res.json(datas)
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.error
@@ -344,6 +348,7 @@ const Volumen24h = async (req, res) => {
         ) sub", [fecha24h, fecha48h])
                         
         res.json(resultados.rows)
+        conexion.end()
     } catch (error) {
         res.error
     }
@@ -406,6 +411,7 @@ const Volumen7d = async (req, res) => {
         ) sub", [fecha7d, fecha14d])
                         //and 1 = (select case when (select 1 from collections c where c.nft_contract = x.receipt_receiver_account_id) = 1 then 1 else 0 end) \
         res.json(resultados.rows)
+        conexion.end()
     } catch (error) {
         res.error
     }
@@ -606,6 +612,7 @@ const Ranking = async (req, res) => {
         const resultados = await conexion.query(query, [fecha2, fecha1, collection, top, owner, horas_vol]);
 
         res.json(resultados.rows)
+        conexion.end();
     } catch (error) {
         console.log('error 1: ', error)
         res.error
@@ -650,7 +657,7 @@ const UpcomingListed = async (req, res) => {
         const respuesta = await conexion2.query(query, [fecha, top])
 
         res.json(respuesta.rows)
-    
+        conexion2.end();
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: false, error: error})
@@ -718,7 +725,7 @@ const NewProjectsListed = async (req, res) => {
         const respuesta = await conexion2.query(query, [top])
 
         res.json(respuesta.rows)
-    
+        conexion2.end();
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: false, error: error})
@@ -786,7 +793,7 @@ const ActiveWalleHeader = async (req, res) => {
         const result = await conexion2.query(query, [fecha, wallet])
         console.log(result.rows)
         res.json(result.rows)
-
+        conexion2.end();
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: false, error: error})
@@ -1005,7 +1012,7 @@ const ActiveWallets = async (req, res) => {
                 }
                 break;
         }
-    
+    conexion2.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: false, error: error})
@@ -1134,7 +1141,7 @@ const ActiveWalletsMarket = async (req, res) => {
         }*/
         res.json([])
         
-    
+    conexion2.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: false, error: error})
@@ -1207,6 +1214,7 @@ const StastMarket = async (req, res) => {
         
         //console.log(array)
         res.json(array)
+        conexion.end()
     } catch (error) {
         console.log(error)
         res.json([])
@@ -1266,7 +1274,7 @@ const CompareProjects = async (req, res) => {
         const result = await conexion2.query(query, [collection, fecha])
         console.log(result.rows)
         res.json(result.rows)
-
+        conexion2.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: false, error: error})

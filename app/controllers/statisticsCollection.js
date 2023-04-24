@@ -96,7 +96,7 @@ const StastPriceCollection = async (req, res) => {
         data = resultados.rows
         
         res.json(data)
-        
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: "error", error: error})
@@ -120,7 +120,7 @@ const AlertVolumen = async (req, res) => {
         const data = resultados.rows;
         
         res.json(data)
-        
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.json({respuesta: "error", error: error})

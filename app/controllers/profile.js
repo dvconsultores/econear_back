@@ -111,7 +111,7 @@ const YourBalance = async (req, res) => {
         }
 
         res.json({saldo_usdc: saldo_usdc, saldo_usdt: saldo_usdt, saldo_dai: saldo_dai, saldo_nexp: saldo_nexp, saldo_uto: saldo_uto})
-        
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.error
@@ -133,7 +133,7 @@ const YourProjectsList = async (req, res) => {
         const data = resultados.rows;
         
         res.json(data)
-        
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.error
@@ -157,7 +157,7 @@ const ToSubscribe = async (req, res) => {
         } else {
             res.json({result: "error", value: "ese correo ya esta subcrito"})
         }
-        
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.error
@@ -226,6 +226,7 @@ async function SavePerfil (req, res) {
         } else {
             res.json({result: 'ok'});
         }
+        conexion.end()
     } catch(error) {
         res.json({error: error});
         console.log(error);
@@ -247,7 +248,7 @@ const YourPerfil = async (req, res) => {
         const data = resultados.rows;
         
         res.json(data)
-        
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.error
@@ -298,7 +299,7 @@ const ToSettings = async (req, res) => {
         } else {
             res.json({result: "error", value: "Error inesperado!"})
         }
-        
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.error
@@ -319,7 +320,7 @@ const YourSettings = async (req, res) => {
         const data = resultados.rows;
         
         res.json(data)
-        
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.error
@@ -348,7 +349,7 @@ const IsHolderMonkeonnear = async (req, res) => {
 
         
         res.json({respuesta: data})
-        
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.error
@@ -408,7 +409,7 @@ const RarezasToken = async (req, res) => {
 
         
         res.json(data)
-        
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.json({error: error})

@@ -46,6 +46,7 @@ const BuscarCollection = async (req, res) => {
                                                 ", [search, top])
                         
         res.json(resultados.rows)
+        conexion.end()
     } catch (error) {
         res.json({error: error})
     }
@@ -62,7 +63,7 @@ const ListMarketplace = async (req, res) => {
         const data = resultados.rows;
         
         res.json(data)
-        
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.error
@@ -105,7 +106,7 @@ const ListCollections = async (req, res) => {
         const data = resultados.rows;
         
         res.json(data)
-        
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.error
@@ -127,7 +128,7 @@ const ListMarketplaceCollection = async (req, res) => {
         const data = resultados.rows;
         
         res.json(data)
-        
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.error
@@ -210,6 +211,7 @@ const ListNft = async (req, res) => {
             const data = resultados.rows;
             
             res.json({excess: 0, data: data})
+            conexion.end()
         //}, "5000")
         
     } catch (error) {
@@ -239,7 +241,7 @@ const CollectionDetails = async (req, res) => {
         const data = resultados.rows;
         
         res.json(data)
-        
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.error
@@ -262,7 +264,7 @@ const BuyOnMarketplace = async (req, res) => {
         const data = resultados.rows;
         
         res.json(data)
-        
+        conexion.end()
     } catch (error) {
         console.log('error 1: ', error)
         res.error
@@ -302,6 +304,7 @@ const SearchNft = async (req, res) => {
         const resultados = await conexion.query(query, [collection, search, top])
                         
         res.json(resultados.rows)
+        conexion.end()
     } catch (error) {
         res.error
     }
@@ -333,6 +336,7 @@ const ListNftOwner = async (req, res) => {
             const data = resultados.rows;
             
             res.json(data)
+            conexion.end()
         //}, "5000")
         
     } catch (error) {
@@ -385,6 +389,7 @@ const BulkList = async (req, res) => {
 
             
             res.json(data)
+            conexion.end()
         //}, "5000")
         
     } catch (error) {
@@ -438,6 +443,7 @@ const BulkListDetails = async (req, res) => {
             const data = resultados.rows;
             
             res.json(data)
+            conexion.end()
        // }, "5000")
         
     } catch (error) {
@@ -463,6 +469,7 @@ async function pruebas() {
         const data = resultados.rows;
         
         res.json(data)
+        conexion.end()
         
     } catch (error) {
         console.log('error 1: ', error)
@@ -824,6 +831,7 @@ const ListNft3 = async (req, res) => {
         
         //console.log(array)
         res.json({excess: excess, data: array})
+        conexion.end()
     } catch (error) {
         console.log(error)
         res.json([])

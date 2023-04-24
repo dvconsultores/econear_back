@@ -63,7 +63,7 @@ const MarketplaceVolumen = async (req, res) => {
         console.log(market, fecha, fecha_hasta)
         const resultados = await conexion.query(queryFinal, [market, fecha, fecha_hasta]);
         data = resultados.rows
-        
+        conexion.end()
         res.json(data)
         
     } catch (error) {

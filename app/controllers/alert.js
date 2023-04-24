@@ -25,7 +25,7 @@ const AlertPrice = async (req, res) => {
         
         const resultados = await conexion.query(query, [collection]);
         const data = resultados.rows;
-        
+        conexion.end();
         res.json(data)
         
     } catch (error) {
@@ -52,7 +52,7 @@ const AlertVolumen = async (req, res) => {
         
         const resultados = await conexion.query(query, [collection]);
         const data = resultados.rows;
-        
+        conexion.end();
         res.json(data)
         
     } catch (error) {
